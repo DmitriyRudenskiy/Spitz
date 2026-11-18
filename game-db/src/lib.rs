@@ -2,6 +2,7 @@
 //! ECO classification, cross-tables, and opening-book interchange. No UI, no engine.
 
 pub mod collation;
+pub mod eco;
 pub mod filter;
 pub mod fold_data;
 pub mod header_record;

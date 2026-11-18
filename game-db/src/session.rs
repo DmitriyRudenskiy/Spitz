@@ -290,6 +290,14 @@ impl Session {
         Ok(self.records.remove(row))
     }
 
+    /// Record the code a classification pass worked out for one game.
+    pub fn set_eco(&mut self, row: usize, code: u16) {
+        if let Some(record) = self.records.get_mut(row) && record.eco != code {
+            record.eco = code;
+            self.dirty = true;
+        }
+    }
+
     /// Write the index and the name dictionaries. The game file only ever grows by appending, so
     /// it is written whole here rather than tracked byte by byte.
     pub fn flush(&mut self) -> Result<(), SessionError> {
@@ -323,6 +331,15 @@ impl Session {
             .map_err(|why| SessionError::Io(why.to_string()))?;
         self.dirty = false;
         Ok(())
+    }
+
+    /// Close a library that was only ever a scratch pad, writing nothing. The lock still goes.
+    pub fn discard(mut self) {
+        self.dirty = false;
+        if self.mode == Mode::ReadWrite {
+            let _ = fs::remove_file(self.files.lock());
+        }
+        self.mode = Mode::ReadOnly; // so the Drop below has nothing left to do
     }
 
     /// Close the library: flush what is owed, release the lock.

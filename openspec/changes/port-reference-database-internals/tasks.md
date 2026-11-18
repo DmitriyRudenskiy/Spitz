@@ -46,9 +46,9 @@
 
 ## 8. ECO classification (`game-db`)
 
-- [ ] 8.1 Write the ECO code file format note and the parser for a user-supplied code file, reporting malformed entries by line.
-- [ ] 8.2 Build the half-move prefix trie with longest-match resolution and the two-entry spec case as a test.
-- [ ] 8.3 Implement the whole-library classification pass writing the code into the header record, with the 1,000,000-game 10-minute budget, the unclassified count, and the repeat-pass determinism test.
+- [x] 8.1 Write the ECO code file format note and the parser for a user-supplied code file, reporting malformed entries by line.
+- [x] 8.2 Build the half-move prefix trie with longest-match resolution and the two-entry spec case as a test.
+- [x] 8.3 Implement the whole-library classification pass writing the code into the header record, with the 1,000,000-game 10-minute budget, the unclassified count, and the repeat-pass determinism test.
 
 ## 9. Rating list and name intelligence (`game-db`, `library-insight`)
 
