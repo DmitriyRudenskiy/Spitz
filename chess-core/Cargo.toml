@@ -1,0 +1,8 @@
+[package]
+name = "chess-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Chess rules, notation codecs and game-document primitives. Pure: no rendering, no engine."
+
+[dependencies]
