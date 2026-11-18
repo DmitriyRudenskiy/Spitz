@@ -25,11 +25,11 @@
 
 ## 5. Header record and name dictionary (`game-db`)
 
-- [ ] 5.1 Write the native header record format note: field list, bit layout, 48-byte target, version byte, and the rebuild path for a version bump.
-- [ ] 5.2 Implement the packed header record with the documented field set and a size assertion, plus encode/decode property tests.
-- [ ] 5.3 Implement the interned name dictionary (player, event, site, round) with `u32` ids, a version byte, and a compaction pass; test id stability and reuse after compaction.
-- [ ] 5.4 Implement the shared collation: diacritic and case folding, leading-integer-aware round comparison, surname/given rotation key; table-test each rule.
-- [ ] 5.5 Build the collation prefix index over the dictionary and test prefix lookup against the surname-order completion case from the spec.
+- [x] 5.1 Write the native header record format note: field list, bit layout, 48-byte target, version byte, and the rebuild path for a version bump.
+- [x] 5.2 Implement the packed header record with the documented field set and a size assertion, plus encode/decode property tests.
+- [x] 5.3 Implement the interned name dictionary (player, event, site, round) with `u32` ids, a version byte, and a compaction pass; test id stability and reuse after compaction.
+- [x] 5.4 Implement the shared collation: diacritic and case folding, leading-integer-aware round comparison, surname/given rotation key; table-test each rule.
+- [x] 5.5 Build the collation prefix index over the dictionary and test prefix lookup against the surname-order completion case from the spec.
 
 ## 6. Filter and sort cache (`game-db`)
 

@@ -119,12 +119,21 @@ fn split_leading_int(name: &str) -> (Option<u64>, &str) {
     }
 }
 
-/// The rotation key of a name: its last word moved to the front, which is the order a name list
-/// is searched in ("Ivanov, Peter" for "Peter Ivanov"). A name already written that way — one
-/// containing a comma — is left alone.
+/// The name written the other way round: surname last becomes `Surname, Given`, and a name
+/// already holding a comma is expanded back to `Given Surname`.
+///
+/// Completion indexes both forms of every name, so the order a library happens to store a name
+/// in decides only how it is displayed.
 pub fn rotation_key(name: &str) -> String {
-    if name.contains(',') {
-        return name.to_owned();
+    if let Some((surname, given)) = name.split_once(',') {
+        let (surname, given) = (surname.trim(), given.trim());
+        return if given.is_empty() {
+            surname.to_owned()
+        } else if surname.is_empty() {
+            given.to_owned()
+        } else {
+            format!("{given} {surname}")
+        };
     }
     let words: Vec<&str> = name.split_whitespace().collect();
     match words.len() {
@@ -209,9 +218,12 @@ mod tests {
     #[test]
     fn rotation_moves_the_last_word_first() {
         assert_eq!(rotation_key("Peter Ivanov"), "Ivanov, Peter");
-        assert_eq!(rotation_key("Ivanov, Peter"), "Ivanov, Peter");
+        assert_eq!(rotation_key("Ivanov, Peter"), "Peter Ivanov");
+        assert_eq!(rotation_key("Peter Ivanov Novikov"), "Novikov, Peter Ivanov");
         assert_eq!(rotation_key("Anand"), "Anand");
         assert_eq!(rotation_key("  "), "");
+        assert_eq!(rotation_key("Ivanov,"), "Ivanov");
+        assert_eq!(rotation_key(", Peter"), "Peter");
     }
 
     #[test]

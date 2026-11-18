@@ -4,3 +4,4 @@
 pub mod collation;
 pub mod fold_data;
 pub mod header_record;
+pub mod name_dict;

@@ -24,9 +24,10 @@ exists, and no source file of this project may carry a copyleft header.
 | `chess-core/src/matsig.rs` | implemented | `src/matsig.h`, `src/matsig.cpp` | none |
 | `chess-core/src/pgn/lexer.rs` | implemented | `src/pgn_lexer.h` | MIT-licensed file, notice below |
 | `chess-core/src/position_key.rs` | planned | `src/polyglot/hash.cpp` | none; the key table is interchange-format data carried as a data file with its own note |
-| `game-db/src/header_record.rs` | planned | `src/indexentry.h` | none |
-| `game-db/src/name_dict.rs` | planned | `src/namebase.h` | none |
-| `game-db/src/collation.rs` | planned | `src/misc.h` (`strCaseCompare`, `strCompareRound`) | none |
+| `game-db/src/header_record.rs` | implemented | `src/indexentry.h` | none |
+| `game-db/src/name_dict.rs` | implemented | `src/namebase.h` | none |
+| `game-db/src/collation.rs` | implemented | `src/misc.h` (`strCaseCompare`, `strCompareRound`) | none |
+| `game-db/src/fold_data.rs` | implemented | none; generated from Unicode NFD data, not from the reference suite |
 | `game-db/src/filter.rs` | planned | `src/hfilter.h` (`Filter`) | none |
 | `game-db/src/sort_cache.rs` | planned | `src/sortcache.h`, `src/sortcache.cpp` | none |
 | `game-db/src/session.rs` | planned | `src/dbasepool.cpp`, `src/filemap.h` | none |
