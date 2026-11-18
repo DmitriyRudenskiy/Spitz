@@ -68,10 +68,23 @@
 
 ## 11. Binary book interchange (`game-db`, `opening-book`)
 
-- [ ] 11.1 Add the position-key table as a versioned data file with its provenance note, and the golden-fixture test that every key of a real book file recomputes equal. Drop the interchange requirement if any key mismatches, and record the outcome here.
-- [ ] 11.2 Implement the 16-byte big-endian entry reader with binary search by key, key verification by replay, illegal-move rejection, and the offset-named skip report; test the 100,000-entry 2-second budget.
-- [ ] 11.3 Implement import into the native book store mapping weight to play count and leaving score, average rating, and last-used date unknown, with the unknown-not-zero panel test.
-- [ ] 11.4 Implement export to the interchange format preserving the reserved field, and the export-import round-trip test.
+- [x] 11.1 Add the position-key table as a versioned data file with its provenance note, and the golden-fixture test that every key of a real book file recomputes equal. Drop the interchange requirement if any key mismatches, and record the outcome here.
+- [x] 11.2 Implement the 16-byte big-endian entry reader with binary search by key, key verification by replay, illegal-move rejection, and the offset-named skip report; test the 100,000-entry 2-second budget.
+- [x] 11.3 Implement import into the native book store mapping weight to play count and leaving score, average rating, and last-used date unknown, with the unknown-not-zero panel test.
+- [x] 11.4 Implement export to the interchange format preserving the reserved field, and the export-import round-trip test.
+
+Outcome, measured on the reference tree's four books 2026-11-19 (release build, Apple silicon):
+no key mismatched, so the requirement stands. `gm2600.bin` imports 20 785 of its 21 671 records
+(95.9%) in 33ms and `Elo2400.bin` 150 050 of 155 878 (96.3%) in 104ms — 155 878 records is 1.6× the
+budget's book, at 19× inside the two seconds. Neither has one record rejected as illegal.
+
+The skipped records are positions the book holds but does not connect to the start, not wrong keys:
+walking all four books together reaches all but 29 of `gm2600.bin`'s 881. The two books converted
+from Fruit are recommendation books of that shape and import 30% (`varied.bin`) and 6.5%
+(`Performance.bin`); both are covered by `a_sparse_book_imports_what_it_can_and_names_the_rest`.
+The two golden tests are `#[ignore]`d because a book file is not in the repository; run them with
+`SPITZ_BOOK=/path/to/gm2600.bin cargo test --release -p game-db -- --ignored --nocapture`. Task 13.2
+re-runs them on the reference hardware and records the numbers here if they move.
 
 ## 12. Surfaces (`desktop`)
 

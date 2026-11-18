@@ -23,7 +23,7 @@ exists, and no source file of this project may carry a copyleft header.
 | `chess-core/src/date.rs` | implemented | `src/date.h` | none |
 | `chess-core/src/matsig.rs` | implemented | `src/matsig.h`, `src/matsig.cpp` | none |
 | `chess-core/src/pgn/lexer.rs` | implemented | `src/pgn_lexer.h` | MIT-licensed file, notice below |
-| `chess-core/src/position_key.rs` | planned | `src/polyglot/hash.cpp` | none; the key table is interchange-format data carried as a data file with its own note |
+| `chess-core/src/key_table.rs` | implemented | `src/polyglot/random.cpp` | the 781 position-key constants themselves, which are interchange-format data rather than source; see `docs/position-key-format.md` |
 | `game-db/src/header_record.rs` | implemented | `src/indexentry.h` | none |
 | `game-db/src/name_dict.rs` | implemented | `src/namebase.h` | none |
 | `game-db/src/collation.rs` | implemented | `src/misc.h` (`strCaseCompare`, `strCompareRound`) | none |
@@ -32,10 +32,12 @@ exists, and no source file of this project may carry a copyleft header.
 | `game-db/src/sort_cache.rs` | implemented | `src/sortcache.h`, `src/sortcache.cpp` | none |
 | `game-db/src/session.rs` | implemented | `src/dbasepool.cpp`, `src/filemap.h` | none |
 | `game-db/src/eco.rs` | implemented | `src/scidbase.cpp` (ECO read and classification), the `.eco` code-file layout | none |
-| `game-db/src/crosstable.rs` | planned | `src/crosstab.h`, `src/crosstab.cpp` | none |
+| `game-db/src/crosstab.rs` | implemented | `src/crosstab.h`, `src/crosstab.cpp` | none |
+| `game-db/src/crosstab_render.rs` | implemented | none; the three renderings are this project's own | none |
 | `game-db/src/rating_list.rs` | implemented | `src/spellchk.cpp` (`PlayerElo`, `PlayerInfo`) | none |
 | `game-db/src/name_correct.rs` | implemented | `src/spellchk.h` (`NameNormalizer`), `src/spellchk.cpp` | none |
-| `game-db/src/book_binary.rs` | planned | `src/polyglot/book.cpp`, `src/pbook.cpp` | none |
+| `game-db/src/book_binary.rs` | implemented | `src/polyglot/book.cpp`, `src/pbook.cpp` | none |
+| `game-db/src/book.rs` | implemented | `src/polyglot/book.cpp` (import by replay), `src/pbook.cpp` (book play) | none |
 
 A row moves from `planned` to `implemented` in the same commit that adds the module.
 

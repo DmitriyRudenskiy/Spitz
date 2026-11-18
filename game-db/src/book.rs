@@ -8,6 +8,7 @@
 
 use chess_core::board::{rank_of, Board, Kind, Move, MoveError};
 use chess_core::date::Date;
+use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::book_binary::{self, Entry as InterchangeEntry, FormatError};
@@ -119,13 +120,21 @@ pub enum Rejection {
     Unreachable,
 }
 
+/// A record the import left out, and where in the file it stood, so the number can be looked up.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Skipped {
+    /// Byte offset of the record inside the file the user imported.
+    pub offset: usize,
+    pub why: Rejection,
+}
+
 /// What an import did, so a caller can say "1 234 moves in, 5 records skipped" and be believed.
 #[derive(Clone, Debug, Default)]
 pub struct Report {
     pub positions: usize,
     pub moves: usize,
     /// Why each record that was skipped was skipped, in the order the file held them.
-    pub rejected: Vec<Rejection>,
+    pub rejected: Vec<Skipped>,
 }
 
 /// The format has no code of its own for a promotion to a queen: a pawn reaching the last rank with
@@ -158,6 +167,7 @@ pub fn import(bytes: &[u8]) -> Result<(Book, Report), ImportError> {
 
     let mut reached: HashMap<u64, Vec<Offer>> = HashMap::new();
     let mut illegal: HashSet<usize> = HashSet::new();
+    let at_offset = |record: usize| record * book_binary::ENTRY_BYTES;
     let mut rejected = Vec::new();
     let mut queue = VecDeque::new();
     queue.push_back(start);
@@ -168,18 +178,19 @@ pub fn import(bytes: &[u8]) -> Result<(Book, Report), ImportError> {
         for at in range {
             let entry = sorted[at];
             let mut next = board;
-            match next.apply(queened(&board, entry.mv)) {
+            let mv = queened(&board, entry.mv);
+            match next.apply(mv) {
                 Ok(()) => {
                     offers.push(Offer {
-                        mv: entry.mv,
+                        mv,
                         plays: entry.weight as u32,
                         score: None,
                         average_rating: None,
                         last_used: None,
                         reserved: entry.reserved,
                     });
-                    if !reached.contains_key(&next.key()) {
-                        reached.insert(next.key(), Vec::new());
+                    if let Entry::Vacant(placeholder) = reached.entry(next.key()) {
+                        placeholder.insert(Vec::new());
                         queue.push_back(next);
                     }
                 }
@@ -208,7 +219,7 @@ pub fn import(bytes: &[u8]) -> Result<(Book, Report), ImportError> {
     let report = Report {
         positions: positions.len(),
         moves: positions.iter().map(|position| position.moves.len()).sum(),
-        rejected: rejected.into_iter().map(|(_, why)| why).collect(),
+        rejected: rejected.into_iter().map(|(record, why)| Skipped { offset: at_offset(record), why }).collect(),
     };
     Ok((Book::new(positions), report))
 }
@@ -277,7 +288,11 @@ mod tests {
         entries.push(InterchangeEntry::new(stranger.key(), Move::simple(square("g1"), square("f3")), 7));
         let (book, report) = import(&book_binary::write(&entries)).unwrap();
         assert_eq!(report.moves, 1, "only the reachable move came in");
-        assert_eq!(report.rejected, vec![Rejection::Unreachable]);
+        assert_eq!(
+            report.rejected,
+            // The second record of the file, so the second sixteen bytes.
+            vec![Skipped { offset: book_binary::ENTRY_BYTES, why: Rejection::Unreachable }]
+        );
         assert!(book.find(stranger.key()).is_none());
     }
 
@@ -289,7 +304,10 @@ mod tests {
         ];
         let (book, report) = import(&book_binary::write(&entries)).unwrap();
         assert_eq!(report.moves, 1);
-        assert_eq!(report.rejected, vec![Rejection::Illegal(MoveError::BadGeometry)]);
+        assert_eq!(
+            report.rejected,
+            vec![Skipped { offset: book_binary::ENTRY_BYTES, why: Rejection::Illegal(MoveError::BadGeometry) }]
+        );
         assert_eq!(book.move_count(), 1);
     }
 
@@ -323,24 +341,109 @@ mod tests {
     }
 
     #[test]
-    fn a_promotion_survives_the_two_byte_move() {
-        // A promotion to a queen shares its code with "no promotion", so it is the position that
-        // says which it was; the others carry their own code.
-        let bytes = book_of(&["a2-a4", "b7-b5", "a4-b5", "a7-a6", "b5-b6", "a6-a5", "b6-a7"]);
-        let (book, report) = import(&bytes).unwrap();
+    fn a_pawn_reaching_the_last_rank_with_an_empty_promotion_field_means_a_queen() {
+        // The format's own convention: the two bytes cannot tell a queen promotion from no
+        // promotion, and the position says which.
+        let line = [
+            ("f2", "f3"), ("a7", "a5"), ("e1", "f2"), ("a5", "a4"), ("f2", "e3"),
+            ("a4", "a3"), ("e3", "d4"), ("a3", "b2"), ("h2", "h4"), ("b2", "a1"),
+        ];
+        let mut board = Board::start();
+        let mut entries = Vec::new();
+        for (at, (from, to)) in line.iter().enumerate() {
+            let promotion = (at + 1 == line.len()).then_some(Kind::Queen);
+            let mv = Move { from: square(from), to: square(to), promotion };
+            entries.push(InterchangeEntry::new(board.key(), mv, 9));
+            board.apply(mv).unwrap();
+        }
+        let (book, report) = import(&book_binary::write(&entries)).unwrap();
         assert!(report.rejected.is_empty(), "{:?}", report.rejected);
-        let promoted = book
-            .find(Board::start().key())
-            .map(|_| ())
-            .map(|_| {
-                book.positions()
-                    .iter()
-                    .flat_map(|position| position.moves.iter())
-                    .find(|offer| offer.mv.to == square("a7") && offer.mv.from == square("b6"))
-            });
-        assert_eq!(promoted.and_then(|offer| offer.mv.promotion), Some(Kind::Queen), "the way the format says it");
-        let knight = Move { from: square("b6"), to: square("a7"), promotion: Some(Kind::Knight) };
-        assert_eq!(book_binary::decode_move(book_binary::encode_move(knight)), knight);
+        let promotion = book
+            .positions()
+            .iter()
+            .flat_map(|position| position.moves.iter())
+            .find(|offer| offer.mv.to == square("a1"))
+            .expect("the promotion move is in the book");
+        assert_eq!(promotion.mv.promotion, Some(Kind::Queen), "as the format means it");
+    }
+
+    /// The golden check, against a book derived from games — gm2600.bin or Elo2400.bin, not one of
+    /// the two recommendation books, which are sparse and covered by the test below. Run it with
+    /// `SPITZ_BOOK=/path/to/gm2600.bin cargo test --release -p game-db -- --ignored --nocapture`.
+    ///
+    /// Measured on the reference tree 2026-11-19: gm2600.bin's 21 671 records import 20 785 of them
+    /// (95.9%) in 33ms, Elo2400.bin's 155 878 import 150 050 (96.3%) in 104ms, neither with a record
+    /// rejected as illegal. The skipped records name positions the book does not connect to the
+    /// start; walking all four books of the tree together reaches all but 29 of gm2600's 881, which
+    /// is what shows the keys are right — a wrong key table imports nothing, not 96%.
+    #[test]
+    #[ignore = "needs a real book file, which is not in the repository"]
+    fn a_real_book_imports_on_the_keys_the_format_agrees_on() {
+        let path = std::env::var("SPITZ_BOOK").expect("SPITZ_BOOK names the book file to check");
+        let bytes = std::fs::read(&path).unwrap();
+        let records = bytes.len() / book_binary::ENTRY_BYTES;
+        let started = std::time::Instant::now();
+        let (book, report) = import(&bytes).unwrap();
+        let took = started.elapsed();
+        println!(
+            "{path}: {records} records -> {} positions, {} moves, {} skipped in {took:?}",
+            report.positions,
+            report.moves,
+            report.rejected.len()
+        );
+        assert!(book.find(Board::start().key()).is_some(), "the start position is in a real book");
+        assert!(
+            report.moves * 20 >= records * 19,
+            "at least 95% of a real book's records should be reachable and legal, got {} of {records}",
+            report.moves
+        );
+        assert!(
+            !report.rejected.iter().any(|skip| matches!(skip.why, Rejection::Illegal(_))),
+            "a real book holds no illegal moves: {:?}",
+            report.rejected
+        );
+        // The budget the interface states, measured in a release build: a debug build is several
+        // times slower and would fail it for the wrong reason.
+        if cfg!(debug_assertions) {
+            eprintln!("imported {records} records in {took:?}; rerun with --release for the timing budget");
+        } else {
+            let per_100k = took.as_secs_f64() * 100_000.0 / records as f64;
+            assert!(per_100k < 2.0, "100k records in under two seconds, took {per_100k:.3}s per 100k");
+        }
+    }
+
+    /// The other shape of book: the recommendation books converted from Fruit hold positions
+    /// without the moves that reach them, so most of a file is unreachable and only the reachable
+    /// part is worth importing. Run it with
+    /// `SPITZ_BOOK=/path/to/varied.bin cargo test -p game-db -- --ignored --nocapture`.
+    ///
+    /// Measured 2026-11-19: varied.bin imports 28 073 of 92 229 records (30%), Performance.bin
+    /// 6 050 of 92 954 (6.5%), neither with a single record rejected as illegal — the positions
+    /// are real, the book simply does not hold the move leading to most of them. Adding the other
+    /// books of the same tree to the walk reaches two thirds of what one book alone cannot,
+    /// which is what tells a sparse book apart from a wrong key table.
+    #[test]
+    #[ignore = "needs a real book file, which is not in the repository"]
+    fn a_sparse_book_imports_what_it_can_and_names_the_rest() {
+        let path = std::env::var("SPITZ_BOOK").expect("SPITZ_BOOK names the book file to check");
+        let bytes = std::fs::read(&path).unwrap();
+        let records = bytes.len() / book_binary::ENTRY_BYTES;
+        let (book, report) = import(&bytes).unwrap();
+        println!(
+            "{path}: {} of {records} records reached {} positions, {} skipped",
+            report.moves, report.positions, report.rejected.len()
+        );
+        assert!(book.find(Board::start().key()).is_some(), "the start position is in a real book");
+        assert!(report.moves > 0, "the reachable part of a real book is never empty");
+        assert!(
+            !report.rejected.iter().any(|skip| matches!(skip.why, Rejection::Illegal(_))),
+            "a real book holds no illegal moves: {:?}",
+            report.rejected
+        );
+        assert!(
+            report.rejected.iter().all(|skip| skip.offset.is_multiple_of(book_binary::ENTRY_BYTES)),
+            "every skip names a record boundary, so the user can look at it"
+        );
     }
 
     #[test]

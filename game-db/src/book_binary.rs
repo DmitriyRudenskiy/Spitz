@@ -10,6 +10,9 @@
 //! The array is sorted by key, so a position's moves are found by binary search and are contiguous.
 //! The whole file is the format — there is no header, and a length that is not a multiple of sixteen
 //! is the corruption that callers must be able to report.
+//!
+//! Two of the format's conventions are worth knowing before reading a move: castling is written as
+//! the king taking its own rook, and promotion to a queen shares its code with no promotion.
 
 use chess_core::board::{Kind, Move, Square};
 
@@ -60,7 +63,20 @@ impl Entry {
 /// The promotion field counts knight, bishop and rook; promotion to a queen shares the code with "no
 /// promotion", and is told apart by the pawn landing on the last rank. That is the format's own
 /// convention, read in `crate::book::import` where the position is known.
+/// Castling, which the format writes as the king taking its own rook: e1h1, e1a1, e8h8, e8a8.
+/// No other move is shaped like this, so the two squares say which it is.
+const CASTLES: [(Square, Square, Square); 4] = [
+    (4, 7, 6),    // e1 takes h1, that is castling kingside
+    (4, 0, 2),    // e1 takes a1
+    (60, 63, 62), // e8 takes h8
+    (60, 56, 58), // e8 takes a8
+];
+
 pub fn encode_move(mv: Move) -> u16 {
+    let mv = match CASTLES.iter().find(|(king, _, to)| *king == mv.from && *to == mv.to) {
+        Some((_, rook, _)) => Move { to: *rook, ..mv },
+        None => mv,
+    };
     let promotion = match mv.promotion {
         Some(Kind::Knight) => 1,
         Some(Kind::Bishop) => 2,
@@ -78,12 +94,17 @@ pub fn decode_move(packed: u16) -> Move {
         3 => Some(Kind::Rook),
         _ => None, // none, or a queen — see the note above
     };
-    Move { from: ((packed >> 6) & 0x3f) as Square, to: (packed & 0x3f) as Square, promotion }
+    let from = ((packed >> 6) & 0x3f) as Square;
+    let to = (packed & 0x3f) as Square;
+    match CASTLES.iter().find(|(king, rook, _)| *king == from && *rook == to) {
+        Some((king, _, castle)) => Move { from: *king, to: *castle, promotion },
+        None => Move { from, to, promotion },
+    }
 }
 
 /// Read a whole book. The entries come back in the file's order.
 pub fn read(bytes: &[u8]) -> Result<Vec<Entry>, FormatError> {
-    if bytes.len() % ENTRY_BYTES != 0 {
+    if !bytes.len().is_multiple_of(ENTRY_BYTES) {
         return Err(FormatError::Trailing { bytes: bytes.len(), trailing: bytes.len() % ENTRY_BYTES });
     }
     Ok(bytes
@@ -126,7 +147,8 @@ mod tests {
     fn record(key: u64, from: u8, to: u8, promotion: u16, weight: u16, reserved: u32) -> [u8; ENTRY_BYTES] {
         let mut out = [0u8; ENTRY_BYTES];
         out[..8].copy_from_slice(&key.to_be_bytes());
-        out[8..10].copy_from_slice(&(((promotion << 12) | ((from as u16) << 6) | to as u16)).to_be_bytes());
+        let packed = (promotion << 12) | ((from as u16) << 6) | to as u16;
+        out[8..10].copy_from_slice(&packed.to_be_bytes());
         out[10..12].copy_from_slice(&weight.to_be_bytes());
         out[12..].copy_from_slice(&reserved.to_be_bytes());
         out
@@ -142,7 +164,7 @@ mod tests {
         };
         assert_eq!(
             entry.bytes(),
-            [0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x03, 0x08, 0x01, 0x02, 0x0a, 0x0b, 0x0c, 0x0d]
+            [0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x03, 0x14, 0x01, 0x02, 0x0a, 0x0b, 0x0c, 0x0d]
         );
         assert_eq!(read(&entry.bytes()).unwrap(), vec![entry]);
     }
@@ -178,15 +200,15 @@ mod tests {
 
     #[test]
     fn a_file_cut_mid_record_is_reported_not_guessed() {
-        let one = record(1, 0, 0, 0, 0, 0);
+        let two = [record(1, 0, 0, 0, 0, 0), record(2, 0, 0, 0, 0, 0)].concat();
         for len in [1, 8, 15, 17, 31] {
             assert!(
-                matches!(read(&one[..len.min(16)]), Err(FormatError::Trailing { .. })),
+                matches!(read(&two[..len]), Err(FormatError::Trailing { .. })),
                 "{len} bytes is not a whole number of records"
             );
         }
-        assert!(read(&one).is_ok(), "sixteen bytes is one record");
-        assert!(read(&[one, record(2, 0, 0, 0, 0, 0)].concat()).is_ok(), "and two");
+        assert_eq!(read(&two[..16]).unwrap().len(), 1, "sixteen bytes is one record");
+        assert_eq!(read(&two).unwrap().len(), 2, "and thirty-two is two");
     }
 
     #[test]
@@ -216,6 +238,17 @@ mod tests {
         let keys: Vec<u64> = read(&bytes).unwrap().iter().map(|e| e.key).collect();
         assert_eq!(keys, vec![1, 5, 5]);
         assert_eq!(find_range(&read(&bytes).unwrap(), 5), Some(1..3));
+    }
+
+    #[test]
+    fn castling_is_written_as_the_king_taking_its_own_rook() {
+        for (castle, rook) in [(Move::simple(4, 6), 7u8), (Move::simple(4, 2), 0), (Move::simple(60, 62), 63), (Move::simple(60, 58), 56)] {
+            let packed = encode_move(castle);
+            assert_eq!(packed & 0x3f, rook as u16, "the format names the rook, not the file");
+            assert_eq!(decode_move(packed), castle, "and it reads back as the castle");
+        }
+        // A king move that is not a castle keeps its own squares.
+        assert_eq!(decode_move(encode_move(Move::simple(4, 12))), Move::simple(4, 12));
     }
 
     #[test]
