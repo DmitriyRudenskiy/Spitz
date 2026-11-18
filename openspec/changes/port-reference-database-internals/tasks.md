@@ -40,9 +40,9 @@
 
 ## 7. Library sessions (`game-db`)
 
-- [ ] 7.1 Implement library opening with read-only detection from permissions and mount, and the no-write guarantee test for a read-only opening.
-- [ ] 7.2 Implement the cooperative lock file recording host and pid, the second-writer refusal naming the path, the read-only fallback, and stale-lock recovery after an unclean exit.
-- [ ] 7.3 Implement the session pool with at least 8 open libraries, least-recently-used closing with a flush, and the no-leftover-lock exit test.
+- [x] 7.1 Implement library opening with read-only detection from permissions and mount, and the no-write guarantee test for a read-only opening.
+- [x] 7.2 Implement the cooperative lock file recording host and pid, the second-writer refusal naming the path, the read-only fallback, and stale-lock recovery after an unclean exit.
+- [x] 7.3 Implement the session pool with at least 8 open libraries, least-recently-used closing with a flush, and the no-leftover-lock exit test.
 
 ## 8. ECO classification (`game-db`)
 

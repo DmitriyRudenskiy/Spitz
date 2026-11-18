@@ -51,6 +51,25 @@ Bit position is the index of the flag character in this table: `c` promoted-to-p
 `F` ff, `W` w, `b` b, `X` x, `Y` y, `Z` z, then the six user-defined flags `1` to `6`. Twenty-two
 bits, twenty-two characters, no gaps.
 
+## The files of a library
+
+A library is four files sharing a base name, which is what `session::LibraryFiles` names:
+
+| File | Contents |
+|---|---|
+| `<base>.gidx` | version byte, `u32` game count, then one 48-byte record per game |
+| `<base>.gnam` | the four name dictionaries, each length-prefixed with a `u64` |
+| `<base>.ggames` | the game records concatenated; `offset` and `length` point into it |
+| `<base>.glock` | the cooperative write lock: host name and pid, one per line |
+
+The index is rewritten whole on flush, through a temporary file and a rename, so an interrupted
+write leaves the previous library readable. The game file only ever grows by appending, which is
+why deleting a game leaves its bytes behind until the library is rebuilt.
+
+A lock is only taken by a writable opening. A lock left by a process that has died on the same
+host is reclaimed on the next opening; a lock belonging to another host is never broken
+automatically, because that process may still be writing.
+
 ## Version byte and the rebuild path
 
 The version is **one byte at the head of the index file**, not one per record: a byte per game
