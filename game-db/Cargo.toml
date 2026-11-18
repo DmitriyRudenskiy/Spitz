@@ -1,0 +1,9 @@
+[package]
+name = "game-db"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Game library storage, filters, name dictionary, ECO, cross-tables, book interchange. No UI."
+
+[dependencies]
+chess-core = { path = "../chess-core" }

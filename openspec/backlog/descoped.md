@@ -50,6 +50,7 @@ stored as audio, offline indication) are worth keeping when it does.
 | `training-center` | Progress Tracking sync wording, cloud puzzle sets, online daily puzzle | Cloud sources. Daily puzzle is now selected by date seed from local exercise stores. |
 | `style-engine` | Style axes as engine search/eval modifications | A foreign engine does not accept "play positionally". Axes are now selection policy over the lines the engine reports, behind a measured-effect gate. |
 | `tablebase-suite` (delta) | Online endgame lookup | Remote six-piece lookup. Local multi-format probing and the endgame explorer stayed. |
+| `endgame-lab` (delta) | A vendor's proprietary compressed tablebase format as a lab data source | Closed container of unknown provenance. The lab probes whatever open backends are configured; a fast open format plus Nalimov/Syzygy already cover the speed case. |
 | `book-authoring` (delta) | On-demand online book query | Remote book service. Local authoring, weeding, per-side books and book learning stayed. |
 | `book-authoring` (delta) | Engine learning (was its own capability) | Adjusting a third-party engine's evaluation is not possible from outside, and doing it in the selection layer would stop being the engine's play. Book learning — the part that was always ours — moved into `book-authoring`. |
 | `deep-analysis-toolkit` (delta) | Selected-moves analysis "restricted engine search, faster than full" | UCI has no root-move restriction. Now one search per selected move from the position after that move, with cost stated up front, plus an optional engine-declared fast path. |
@@ -63,7 +64,9 @@ stored as audio, offline indication) are worth keeping when it does.
   (arbiter module, fast tablebase format, histogram, shootout).
 - Milestone numbering: M1 core platform (`add-core-platform-mvp`), M2 analysis and training
   (`add-analysis-and-training`), M3 analysis power tools (`add-analysis-power-tools`), M4 power-user
-  surface (`add-power-user-features`), plus the shell refinement change (`add-ui-enhancements`),
-  which takes no milestone number. The retired online/cloud/voice milestone is not numbered.
+  surface (`add-power-user-features`), M5 endgame lab and tournament play
+  (`add-endgame-lab-and-tournament-play`), plus the shell refinement change
+  (`add-ui-enhancements`), which takes no milestone number. The retired online/cloud/voice
+  milestone is not numbered.
 - `chess-engine` is no longer part of M1, which is why M1 is now four crates plus the shell
   instead of a fifth engine crate.

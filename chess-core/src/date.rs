@@ -92,6 +92,15 @@ impl Date {
         })
     }
 
+    /// Inverse of [`Self::sort_key`], the 20-bit form the header record stores.
+    pub const fn from_sort_key(key: u32) -> Self {
+        Self {
+            year: ((key >> 9) & 0x7FF) as u16,
+            month: ((key >> 5) & 0xF) as u8,
+            day: (key & 0x1F) as u8,
+        }
+    }
+
     /// The `[min, max]` span a date can denote, as sort keys. Unknown components widen the
     /// span to the whole of the enclosing component, so no calendar arithmetic is needed:
     /// both bounds use the same convention and only ever meet each other.

@@ -10,7 +10,7 @@ M1 and M2 cover the core: play, analysis, training, books, and a hosted-engine G
   - `chess-variants` — Chess960 rules, random starts, variant play/matches/analysis.
   - `humanized-opponent` — strength slider with separate opening knowledge, rated games with measured rating, handicap games, human-shaped errors and behavior (draw offers, resignations), in-game coach aids. Realized through the `move-selection` layer; nothing here requires engine cooperation beyond the option set it declares.
   - `deep-analysis-toolkit` — selected-moves analysis (include/exclude), game histogram, shootout, batch position analysis (EPD/PGN → EPD/CSV), background analysis during the opponent's turn.
-  - `multi-engine-orchestration` — up to 10 engines at once, arbiter module, WinBoard hosting, engine match and tournament runners, legacy autoplayer compatibility.
+  - `multi-engine-orchestration` — up to 10 engines at once, arbiter module, WinBoard hosting, engine match and tournament runners (round robin and gauntlet, start positions from a set), legacy autoplayer compatibility.
   - `tablebase-suite` — multi-format tablebase management, endgame position explorer, evaluation-changing-error flags. All lookups are local files; no online endgame database.
   - `book-authoring` — create/edit/weed opening books without size limits, per-side books in matches, book learning from match results. Books stay local files.
   - `external-boards` — DGT integration and legacy electronic boards.

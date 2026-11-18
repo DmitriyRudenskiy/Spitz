@@ -52,6 +52,16 @@ impl MaterialSignature {
     /// The standard opening position: 8/2/2/2/1 per colour.
     pub const START: Self = Self(0x006A_86A8);
 
+    /// The 24 bits as stored, for the header record and for tests.
+    pub const fn raw(self) -> u32 {
+        self.0 & 0xFF_FFFF
+    }
+
+    /// Inverse of [`Self::raw`]; bits above the 24 the layout uses are ignored.
+    pub const fn from_raw(raw: u32) -> Self {
+        Self(raw & 0xFF_FFFF)
+    }
+
     /// The same signature with the colours exchanged.
     pub const fn flip(self) -> Self {
         Self((self.0 >> 12) | ((self.0 & 0xFFF) << 12))

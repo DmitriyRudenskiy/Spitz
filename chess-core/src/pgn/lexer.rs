@@ -66,11 +66,12 @@ impl Glyph {
 }
 
 /// The game termination marker.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum GameResult {
     WhiteWins,
     BlackWins,
     Draw,
+    #[default]
     Unfinished,
 }
 
