@@ -71,5 +71,6 @@ instead.
 
 `backlog/` is not an OpenSpec artifact directory and `openspec validate` ignores it. It holds the
 requirement text of capabilities that left scope (specs, and one whole milestone change) plus
-`descoped.md`. Restoring something is a `git mv` back into `specs/` or `changes/` followed by a
+`descoped.md` and `launch-checklist.md` (cheap-before-release items that are not requirements).
+Restoring something is a `git mv` back into `specs/` or `changes/` followed by a
 scope review — the reasoning stays here so nobody has to re-litigate it from memory.

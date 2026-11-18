@@ -48,7 +48,10 @@ context: |
 
   LANGUAGE
   Specs, design docs, tasks, code comments and identifiers: English. Product copy lives in the i18n
-  bundle; other locales are data files, never hardcoded in components.
+  bundle; other locales are data files, never hardcoded in components. At launch English is the
+  only built-in locale and the only one CI gates (not-a-stub check); further locales - Russian
+  first among them - ship as complete data files when their translators finish them and are never
+  a red test for unrelated work.
 
 rules:
   proposal:

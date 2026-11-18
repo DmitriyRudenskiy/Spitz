@@ -94,7 +94,7 @@
 - [ ] 5.1 Extend the asset manifest checks so wildcard badges, risk glyphs, legend, and material
   strip art ride the `add-power-user-features` pipeline (colour slots, license record per asset).
 - [ ] 5.2 Add locale resources for every string this change introduces and run the not-a-stub
-  check.
+  check on the launch locale (English is the only CI-gated locale at launch; see `config.yaml`).
 - [ ] 5.3 Record measured numbers (sweep budget, transcript cost, bias distribution) in the test
   reports they belong to and relax or tighten the spec numbers only with evidence.
 - [ ] 5.4 Update `openspec/specs/` through the archive step for each capability this change
