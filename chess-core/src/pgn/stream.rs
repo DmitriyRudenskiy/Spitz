@@ -1,6 +1,6 @@
 //! Splitting a PGN character stream into games at the termination markers.
 
-use super::lexer::{LexError, Lexer, Token};
+use super::lexer::{LexError, LexErrorKind, Lexer, Token};
 
 /// The result of a split: the games that parsed, and the fault that stopped the stream.
 pub struct Games<'a> {
@@ -29,6 +29,13 @@ pub fn split_games(src: &str) -> Games<'_> {
                 break;
             }
         }
+    }
+    // A stream that ends inside a variation never finished the game it was in.
+    if fault.is_none() && lexer.depth() > 0 {
+        fault = Some(LexError {
+            line: lexer.opened_at(),
+            kind: LexErrorKind::UnbalancedVariation,
+        });
     }
     if fault.is_none() && !current.is_empty() {
         games.push(current);
@@ -68,7 +75,10 @@ mod tests {
         let src = format!("{GAME}\n\n1. e4 [Event \"late\"]\n");
         let stream = split_games(&src);
         assert_eq!(stream.games.len(), 1);
-        assert_eq!(stream.games[0].last(), Some(&Token::Result(GameResult::Unfinished)));
+        assert_eq!(
+            stream.games[0].last(),
+            Some(&Token::Result(GameResult::Unfinished))
+        );
         let fault = stream.fault.expect("the second game faults");
         assert_eq!(fault.line, 5);
     }

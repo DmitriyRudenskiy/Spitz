@@ -179,15 +179,29 @@ pub struct Lexer<'a> {
     at: usize,
     line: u32,
     depth: u32,
+    /// The line the variation currently open was opened on, for reporting one that never closes.
+    opened_at: u32,
     movetext: bool,
 }
 
 impl<'a> Lexer<'a> {
     pub fn new(src: &'a str) -> Self {
-        Self { src, at: 0, line: 1, depth: 0, movetext: false }
+        Self {
+            src,
+            at: 0,
+            line: 1,
+            depth: 0,
+            opened_at: 0,
+            movetext: false,
+        }
     }
 
     /// Variation nesting reached so far, for a caller that wants to reject unbalanced games.
+    /// The line the still-open variation was opened on, when `depth` says one is open.
+    pub const fn opened_at(&self) -> u32 {
+        self.opened_at
+    }
+
     pub const fn depth(&self) -> u32 {
         self.depth
     }
@@ -234,94 +248,99 @@ impl<'a> Lexer<'a> {
 
     fn skip_spaces(&mut self) {
         let rest = self.rest();
-        let end = rest.find(|c: char| !c.is_whitespace()).unwrap_or(rest.len());
+        let end = rest
+            .find(|c: char| !c.is_whitespace())
+            .unwrap_or(rest.len());
         self.count_lines(&rest[..end]);
         self.at += end;
     }
 
     fn next_token(&mut self) -> Result<Option<Token<'a>>, LexError> {
         loop {
-        let Some(first) = self.rest().chars().next() else {
-            return Ok(None);
-        };
-        let line = self.line;
-        let column = self.at;
-        self.at += first.len_utf8();
-        let token = match first {
-            ' ' | '\t' | '\r' | '\u{b}' | '.' | '<' | '>' => continue,
-            '\n' => {
-                self.line += 1;
-                continue;
-            }
-            '[' => {
-                if self.movetext {
-                    return self.fail(line, LexErrorKind::TagInMovetext);
+            let Some(first) = self.rest().chars().next() else {
+                return Ok(None);
+            };
+            let line = self.line;
+            let column = self.at;
+            self.at += first.len_utf8();
+            let token = match first {
+                ' ' | '\t' | '\r' | '\u{b}' | '.' | '<' | '>' => continue,
+                '\n' => {
+                    self.line += 1;
+                    continue;
                 }
-                return self.tag_pair(line);
-            }
-            '{' => {
-                let (text, closed) = self.eat_to('}');
-                if !closed {
-                    return self.fail(line, LexErrorKind::UnterminatedComment);
+                '[' => {
+                    if self.movetext {
+                        return self.fail(line, LexErrorKind::TagInMovetext);
+                    }
+                    return self.tag_pair(line);
                 }
-                Token::BraceComment(text)
-            }
-            ';' => Token::LineComment(self.eat_to('\n').0),
-            '%' => {
-                if column > 0 && !self.src[..column].ends_with('\n') {
-                    return self.fail(line, LexErrorKind::EscapeNotInFirstColumn);
+                '{' => {
+                    let (text, closed) = self.eat_to('}');
+                    if !closed {
+                        return self.fail(line, LexErrorKind::UnterminatedComment);
+                    }
+                    Token::BraceComment(text)
                 }
-                Token::Escape(self.eat_to('\n').0)
-            }
-            '$' => match self.eat_symbol().parse::<u8>() {
-                Ok(0) | Err(_) => return self.fail(line, LexErrorKind::MalformedNag),
-                Ok(n) => Token::Nag(n),
-            },
-            '!' | '?' => {
-                let start = column;
-                while let Some('!' | '?') = self.rest().chars().next() {
-                    self.at += 1;
+                ';' => Token::LineComment(self.eat_to('\n').0),
+                '%' => {
+                    if column > 0 && !self.src[..column].ends_with('\n') {
+                        return self.fail(line, LexErrorKind::EscapeNotInFirstColumn);
+                    }
+                    Token::Escape(self.eat_to('\n').0)
                 }
-                let text = &self.src[start..self.at];
-                match Glyph::from_symbol(text) {
-                    Some(glyph) => Token::Suffix(glyph),
-                    None => return self.fail(line, LexErrorKind::MalformedGlyph),
+                '$' => match self.eat_symbol().parse::<u8>() {
+                    Ok(0) | Err(_) => return self.fail(line, LexErrorKind::MalformedNag),
+                    Ok(n) => Token::Nag(n),
+                },
+                '!' | '?' => {
+                    let start = column;
+                    while let Some('!' | '?') = self.rest().chars().next() {
+                        self.at += 1;
+                    }
+                    let text = &self.src[start..self.at];
+                    match Glyph::from_symbol(text) {
+                        Some(glyph) => Token::Suffix(glyph),
+                        None => return self.fail(line, LexErrorKind::MalformedGlyph),
+                    }
                 }
-            }
-            '(' => {
-                self.depth += 1;
-                if self.depth > MAX_VARIATION_DEPTH {
-                    return self.fail(line, LexErrorKind::VariationTooDeep);
+                '(' => {
+                    if self.depth == 0 {
+                        self.opened_at = line;
+                    }
+                    self.depth += 1;
+                    if self.depth > MAX_VARIATION_DEPTH {
+                        return self.fail(line, LexErrorKind::VariationTooDeep);
+                    }
+                    Token::VariationStart
                 }
-                Token::VariationStart
-            }
-            ')' => {
-                if self.depth == 0 {
-                    return self.fail(line, LexErrorKind::UnbalancedVariation);
+                ')' => {
+                    if self.depth == 0 {
+                        return self.fail(line, LexErrorKind::UnbalancedVariation);
+                    }
+                    self.depth -= 1;
+                    Token::VariationEnd
                 }
-                self.depth -= 1;
-                Token::VariationEnd
-            }
-            '*' => {
-                self.movetext = false;
-                Token::Result(GameResult::Unfinished)
-            }
-            _ if is_symbol(first) => {
-                self.at = column;
-                let text = self.eat_symbol();
-                self.movetext = true;
-                if let Some(result) = termination(text) {
+                '*' => {
                     self.movetext = false;
-                    Token::Result(result)
-                } else if text.bytes().all(|c| c.is_ascii_digit()) {
-                    Token::MoveNumber(text)
-                } else {
-                    Token::SanMove(text)
+                    Token::Result(GameResult::Unfinished)
                 }
-            }
-            _ => return self.fail(line, LexErrorKind::UnexpectedChar(first)),
-        };
-        return Ok(Some(token));
+                _ if is_symbol(first) => {
+                    self.at = column;
+                    let text = self.eat_symbol();
+                    self.movetext = true;
+                    if let Some(result) = termination(text) {
+                        self.movetext = false;
+                        Token::Result(result)
+                    } else if text.bytes().all(|c| c.is_ascii_digit()) {
+                        Token::MoveNumber(text)
+                    } else {
+                        Token::SanMove(text)
+                    }
+                }
+                _ => return self.fail(line, LexErrorKind::UnexpectedChar(first)),
+            };
+            return Ok(Some(token));
         }
     }
 
@@ -378,7 +397,7 @@ fn is_symbol(c: char) -> bool {
 }
 
 /// The four termination markers, accepting the `:` and `1/2` spellings seen in the wild.
-fn termination(text: &str) -> Option<GameResult> {
+pub fn termination(text: &str) -> Option<GameResult> {
     match text {
         "1-0" | "1:0" => Some(GameResult::WhiteWins),
         "0-1" | "0:1" => Some(GameResult::BlackWins),
@@ -416,6 +435,11 @@ pub fn write_token(token: Token<'_>, out: &mut String) {
         }
         Token::Nag(n) => out.push_str(&format!("${n} ")),
         Token::Suffix(glyph) => {
+            // A glyph belongs tight against the move it annotates, so it writes itself into the
+            // space the previous token left, and leaves one for whatever comes next.
+            if out.ends_with(' ') {
+                out.pop();
+            }
             out.push_str(glyph.symbol());
             out.push(' ');
         }
@@ -475,12 +499,22 @@ mod tests {
             write_token(*token, &mut written);
         }
         assert_eq!(lex(&written).expect("the written form re-lexes"), tokens);
-        assert!(matches!(tokens[0], Token::Escape("t7300 an escape comment in column one")));
-        assert!(matches!(tokens[2], Token::TagPair { name: "Site", value } if value == "Berlin \\\"East\\\""));
-        assert!(matches!(tokens[4], Token::TagPair { name: "Annotator", value } if value == "back\\\\slash"));
+        assert!(matches!(
+            tokens[0],
+            Token::Escape("t7300 an escape comment in column one")
+        ));
+        assert!(
+            matches!(tokens[2], Token::TagPair { name: "Site", value } if value == "Berlin \\\"East\\\"")
+        );
+        assert!(
+            matches!(tokens[4], Token::TagPair { name: "Annotator", value } if value == "back\\\\slash")
+        );
         assert!(matches!(tokens[8], Token::BraceComment(text)
             if text.contains('\n') && clock_centi_seconds(text) == Some(7300)));
-        assert!(matches!(tokens[10], Token::LineComment(" a semicolon comment")));
+        assert!(matches!(
+            tokens[10],
+            Token::LineComment(" a semicolon comment")
+        ));
         assert!(tokens.contains(&Token::Nag(3)));
         assert!(matches!(tokens[11], Token::MoveNumber("2")));
     }
@@ -511,8 +545,14 @@ mod tests {
         assert_eq!(
             tokens,
             [
-                Token::TagPair { name: "Site", value: "Berlin \\\"East\\\"" },
-                Token::TagPair { name: "Round", value: "1" },
+                Token::TagPair {
+                    name: "Site",
+                    value: "Berlin \\\"East\\\""
+                },
+                Token::TagPair {
+                    name: "Round",
+                    value: "1"
+                },
             ]
         );
         assert_eq!(unescape_tag_value("Berlin \\\"East\\\""), "Berlin \"East\"");
@@ -523,12 +563,21 @@ mod tests {
     #[test]
     fn a_tag_pair_may_span_lines() {
         let tokens = lex("[PlyCount \"80\"\n ]").expect("no fault");
-        assert_eq!(tokens, [Token::TagPair { name: "PlyCount", value: "80" }]);
+        assert_eq!(
+            tokens,
+            [Token::TagPair {
+                name: "PlyCount",
+                value: "80"
+            }]
+        );
     }
 
     #[test]
     fn faults_name_the_line() {
-        assert_eq!(kind("1. e4 e5\n2. Nf3 [Event \"late\"]\n").kind, TagInMovetext);
+        assert_eq!(
+            kind("1. e4 e5\n2. Nf3 [Event \"late\"]\n").kind,
+            TagInMovetext
+        );
         assert_eq!(kind("1. e4 e5\n2. Nf3 [Event \"late\"]\n").line, 2);
         assert_eq!(kind("1. e4 {open\nstill open\n").kind, UnterminatedComment);
         assert_eq!(kind("1. e4 {open\nstill open\n").line, 1);
@@ -547,9 +596,19 @@ mod tests {
     #[test]
     fn accepts_deeply_nested_variations_up_to_the_recorded_limit() {
         for depth in [1, 8, 16, MAX_VARIATION_DEPTH] {
-            let src = format!("{}e4{}", "(".repeat(depth as usize), ")".repeat(depth as usize));
+            let src = format!(
+                "{}e4{}",
+                "(".repeat(depth as usize),
+                ")".repeat(depth as usize)
+            );
             let tokens = lex(&src).unwrap_or_else(|e| panic!("depth {depth}: {e}"));
-            assert_eq!(tokens.iter().filter(|t| matches!(t, Token::VariationStart)).count(), depth as usize);
+            assert_eq!(
+                tokens
+                    .iter()
+                    .filter(|t| matches!(t, Token::VariationStart))
+                    .count(),
+                depth as usize
+            );
         }
         let too_deep = format!("{}e4{}", "(".repeat(33), ")".repeat(33));
         assert_eq!(kind(&too_deep).kind, VariationTooDeep);
@@ -572,4 +631,3 @@ mod tests {
         );
     }
 }
-
