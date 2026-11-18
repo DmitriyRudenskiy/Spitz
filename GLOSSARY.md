@@ -72,6 +72,11 @@ be selectable.
 
 ### Games and files
 
+**Library**:
+A user-visible corpus of game documents with its own indexes and sessions; the thing the user
+opens, searches, and closes.
+_Avoid_: database (reserve for external systems and for "database" inside parser vocabulary)
+
 **Game document**:
 One game with its moves, comments, annotations, and clocks, as stored and shared.
 _Avoid_: record (means the PGN object in parser contexts)

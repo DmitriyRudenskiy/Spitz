@@ -49,7 +49,7 @@
 
 - [ ] 7.1 Game document model: moves, nested variations, comments, NAGs, glyphs, embedded diagrams, unlimited undo/redo
 - [ ] 7.2 Streaming PGN import/export with variation/comment round-trip tests on 100-game fixture files
-- [ ] 7.3 Native database format (documented) with writer/reader; 1M-game header index builds ≤ 10 min on reference hardware
+- [ ] 7.3 Native library format (documented) with writer/reader; 1M-game header index builds ≤ 10 min on reference hardware
 - [ ] 7.4 Search: header filters < 5 s and position search < 60 s over 1M games
 - [ ] 7.5 Virtualized game list: sort/filter interactions < 100 ms at 100k rows; duplicate detection with merge guidance
 - [ ] 7.6 Print and PDF export with diagrams; clipboard copy of PGN, FEN, and diagram image

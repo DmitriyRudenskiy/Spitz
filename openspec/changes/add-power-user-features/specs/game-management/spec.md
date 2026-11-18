@@ -2,7 +2,7 @@
 
 ## MODIFIED Requirements
 
-### Requirement: Database search
+### Requirement: Library search
 
 The database SHALL support search by player (with substring matching), by Elo range, by date range, by result, by ECO code, by tag or by the presence of a tag pattern, by the presence of comments or of a symbol on a move, by time-control class, by the number of moves, by a material-and-turn position filter, by a position or by a manoeuvre, with results paginated at most 500 rows per page and with the estimated row count shown before the search runs. Each filter SHALL name the accelerator it uses, and a filter with no accelerator SHALL report the number of records it scanned.
 

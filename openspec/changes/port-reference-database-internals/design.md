@@ -129,6 +129,17 @@ Rollback is per feature flag (`library-insight`, `binary-book-import`, `eco-clas
 header record, filter, and sort cache are infrastructure and roll back only as a unit with the native
 format version.
 
+## Sequencing
+
+While `add-core-platform-mvp` has not fixed the native library file format, this change proceeds
+only on self-contained structures - dates, PGN lexing, material signatures, the packed header
+record, the name dictionary, collation, sessions as data - each landing with its own tests and no
+reader or writer wiring to a data file. Anything that stores or resolves byte offsets into a game
+data file waits for the M1 format task (7.3), because an integration layer written against an
+undefined format is written twice. The already-written budgets and the format version in this
+change's roll-back notes assume that order; violating it is a design-review finding, not a
+shortcut.
+
 ## Open Questions
 
 - The rating-list file format: adopt the reference's own list layout or define a documented CSV with

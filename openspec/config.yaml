@@ -27,7 +27,9 @@ context: |
      tablebase files.
   5. Unmeasurable goals are forbidden. A requirement must be testable: state depth, latency,
      position counts, error rates, file formats. "Feels human" is not a requirement; a measured
-     distribution from 1000 calibrated games is.
+     distribution from 1000 calibrated games is. An unmeasured SHALL-number ships as an acceptance
+     budget: it stays binding in tests and may only be relaxed by a spec edit that carries the
+     measured replacement number from a recorded run.
 
   STACK
   Cargo workspace. Rust in the process boundary, React on the rendering side:

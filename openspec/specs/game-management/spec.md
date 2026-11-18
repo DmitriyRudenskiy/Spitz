@@ -34,7 +34,7 @@ The app SHALL import and export PGN as a stream, including multi-game files, suc
 - **WHEN** a game with nested variations, comments, and NAGs is exported to PGN and re-imported
 - **THEN** the resulting move tree, comments, and NAGs are identical to the original
 
-### Requirement: Native database format
+### Requirement: Library format
 
 The app SHALL provide a documented native open database format that holds at least 1,000,000 games per database and builds the header index in at most 10 minutes on the reference hardware.
 
@@ -49,7 +49,7 @@ The app SHALL provide a documented native open database format that holds at lea
 - **WHEN** games are appended to a database across several sessions and the database is reopened
 - **THEN** every game is preserved and the header index remains valid without a full rebuild
 
-### Requirement: Database search
+### Requirement: Library search
 
 The app SHALL search a 1,000,000-game database by header filters (player, ECO code, result, date range, Elo range, material) within 5 seconds and by board position within 60 seconds.
 
