@@ -1,32 +1,69 @@
+# Spitz — OpenSpec project context and authoring rules.
+# `context` is injected into every artifact generation; `rules` guides how each artifact is written.
+
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  PRODUCT
+  Spitz is a free, open-source chess workspace for Linux desktops: play against engines, analyse,
+  train, and manage a game and analysis database. Working title Spitz. It is a community project
+  with no account, no subscription, and no network service.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  BOUNDARIES (non-negotiable, they decide most design questions)
+  1. GUI, not engine. Playing and analysis strength come entirely from third-party engines spoken
+     over UCI (Stockfish first-class, WinBoard/xboard adapters later). We never write or ship a
+     chess engine. Anything the GUI adds on top of engine output — level ladders, sampled move
+     selection, style personas, book gating, coaching — lives in the move-selection layer
+     (specs/move-selection) and is expressed in UCI options the engine declares.
+  2. Local-only. The program binds no port and opens no outbound connection. Accounts, licensing,
+     sync, cloud analysis, crowd data, remote books and online tablebases are out of scope; their
+     retired requirement text is in openspec/backlog/.
+  3. Clean-room naming. No third-party chess product or format brand in specs, code, UI strings or
+     docs. Describe behaviour instead: "fast tablebase format", "arbiter module", "analysis suite".
+     Engine names that users run (Stockfish, Nemo) and protocol names (UCI, XBoard/WinBoard) are
+     fine; GUI code parses UCI option names, never brands.
+  4. No proprietary content or containers: no bundled commercial opening books, puzzle sets, or
+    game databases; no proprietary database formats. Users supply their own PGN, EPD, and
+     tablebase files.
+  5. Unmeasurable goals are forbidden. A requirement must be testable: state depth, latency,
+     position counts, error rates, file formats. "Feels human" is not a requirement; a measured
+     distribution from 1000 calibrated games is.
 
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
+  STACK
+  Cargo workspace. Rust in the process boundary, React on the rendering side:
+    chess-core  rules, FEN, SAN, PGN, clocks, variants (pure, perft-tested, no rendering deps)
+    uci-host    engine registry, process lifecycle, UCI and WinBoard I/O, option schema, resource cap
+    move-select level → option mapping, MultiPV sampling, book gate, per-engine calibration
+    game-db     game documents, streaming PGN, the native store, search, book files
+    desktop     Tauri shell, React UI, panels, board renderer
+  Board rendering is a canvas layer with a deterministic layout API; engine and rules logic never
+  depend on it. UI is a stable, keyboard-first workspace, not a web-marketing layout.
+
+  AUDIENCE AND MODALITY
+  Club and improvement-focused players on Linux desktops (X11 and Wayland), plus analysis-heavy
+  users running several engines. Primary modality: mouse/keyboard with a board, notation panel and
+  engine lines. Desktop only — no touch or console layouts.
+
+  LANGUAGE
+  Specs, design docs, tasks, code comments and identifiers: English. Product copy lives in the i18n
+  bundle; other locales are data files, never hardcoded in components.
+
+rules:
+  proposal:
+    - Name the user-visible capability, not a screen or a component.
+    - State why the capability matters to a player or analyst, in one or two sentences.
+    - Never propose engine work, network features, or account/licensing work — they are out of scope.
+    - List affected specs by capability id and mark new vs modified.
+  specs:
+    - Every requirement uses SHALL and has at least one "#### Scenario:" with WHEN/THEN.
+    - Acceptance is measurable: depths, time budgets, position counts, latency limits, file formats.
+    - Engine-dependent behaviour is calibrated and asserted per registered engine, never as an absolute strength claim.
+    - No reference-product or format brand names; no requirement that needs the network.
+    - Delta specs use ADDED/MODIFIED/REMOVED Requirements headers exactly as openspec instructions prints.
+  design:
+    - Record decisions with consequences, including what was rejected and why.
+    - Keep engine behaviour behind uci-host's declared-option model; never assume an option exists.
+    - Name the crate each piece of work lands in.
+  tasks:
+    - One commit-sized step per task, ordered by dependency; tests land with the behaviour they cover.
+    - Every change ends with an openspec validate task and a full-test-suite task.
