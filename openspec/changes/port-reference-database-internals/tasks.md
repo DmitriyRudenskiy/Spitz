@@ -60,11 +60,11 @@
 
 ## 10. Cross-table (`game-db`, `library-insight`)
 
-- [ ] 10.1 Implement the cross-table builder over a filtered game set: per-player games, wins, draws, losses, score, average opponent rating, title, federation, and the per-pair clash records.
-- [ ] 10.2 Implement mode detection with the documented thresholds and explicit override, and the automatic-selection test for both spec sets.
-- [ ] 10.3 Implement tie-breaks for all-play-all, Swiss, and knockout, plus head-to-head resolution that reports the deciding rule.
-- [ ] 10.4 Implement the 500-player and 60-round caps with excluded counts, and the truncation-report test.
-- [ ] 10.5 Implement the plain-text, HTML, and typeset-source emitters and the cross-format equality test; assert single-page output for 20 players.
+- [x] 10.1 Implement the cross-table builder over a filtered game set: per-player games, wins, draws, losses, score, average opponent rating, title, federation, and the per-pair clash records.
+- [x] 10.2 Implement mode detection with the documented thresholds and explicit override, and the automatic-selection test for both spec sets.
+- [x] 10.3 Implement tie-breaks for all-play-all, Swiss, and knockout, plus head-to-head resolution that reports the deciding rule.
+- [x] 10.4 Implement the 500-player and 60-round caps with excluded counts, and the truncation-report test.
+- [x] 10.5 Implement the plain-text, HTML, and typeset-source emitters and the cross-format equality test; assert single-page output for 20 players.
 
 ## 11. Binary book interchange (`game-db`, `opening-book`)
 
@@ -88,11 +88,14 @@ re-runs them on the reference hardware and records the numbers here if they move
 
 ## 12. Surfaces (`desktop`)
 
+Blocked: the workspace has `chess-core` and `game-db` only. There is no desktop crate to add a
+panel to, so 12.1 to 12.3 wait on the change that lands the app shell.
+
 - [ ] 12.1 Add the cross-table panel with mode and sort controls, clash drill-down to a game, and the excluded-count header.
 - [ ] 12.2 Wire name completion and correction into the search filter and game-entry header fields, including the accept-correction confirmation.
 - [ ] 12.3 Add the ECO column and the classification status to the library views, and the rating-list source annotation to the rating display.
 
 ## 13. Across
 
-- [ ] 13.1 Run `openspec validate port-reference-database-internals --strict` and fix every reported requirement and delta problem.
-- [ ] 13.2 Run the full test suite including the 1,000,000-game and 100,000-row budget fixtures on the reference hardware, and record the measured numbers in the change directory.
+- [x] 13.1 Run `openspec validate port-reference-database-internals --strict` and fix every reported requirement and delta problem. Passed 2026-11-19 with no output beyond the validity line.
+- [ ] 13.2 Run the full test suite including the 1,000,000-game and 100,000-row budget fixtures on the reference hardware, and record the measured numbers in the change directory. Not this machine: the reference is the 8GB Intel iMac. Everything runnable here passes — 135 tests, `cargo clippy --workspace --all-targets` clean — and the book numbers from 11.1 to 11.4 are recorded under group 11.
