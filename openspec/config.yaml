@@ -56,7 +56,7 @@ rules:
     - List affected specs by capability id and mark new vs modified.
   specs:
     - Every requirement uses SHALL and has at least one "#### Scenario:" with WHEN/THEN.
-    - Acceptance is measurable: depths, time budgets, position counts, latency limits, file formats.
+    - Acceptance is measurable — depths, time budgets, position counts, latency limits, file formats.
     - Engine-dependent behaviour is calibrated and asserted per registered engine, never as an absolute strength claim.
     - No reference-product or format brand names; no requirement that needs the network.
     - Delta specs use ADDED/MODIFIED/REMOVED Requirements headers exactly as openspec instructions prints.
