@@ -405,8 +405,9 @@ mod tests {
             assert_eq!(tracker.home_pawns(), home_pawn_signature(white_files, black_files));
         }
         // The budget the library filter is designed around: 100 ns a position.
+        let elapsed = start.elapsed();
+        println!("1M incremental signatures: {elapsed:?} (budget 100 ms)");
         if !cfg!(debug_assertions) {
-            let elapsed = start.elapsed();
             assert!(elapsed.as_millis() < 100, "1M updates took {elapsed:?}");
         }
     }

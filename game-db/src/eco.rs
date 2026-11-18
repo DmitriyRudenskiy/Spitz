@@ -508,7 +508,7 @@ A01 1. e4 c5        # the same sequence and code again
             };
             assert_eq!(session.record(row).unwrap().eco, expected, "row {row}");
         }
-        println!("classified {} games in {elapsed:?}", report.games);
+        println!("classified {} games in {elapsed:?} (budget 10 min)", report.games);
         #[cfg(not(debug_assertions))]
         assert!(elapsed.as_secs() < 600, "the budget is ten minutes, this took {elapsed:?}");
         session.discard();

@@ -444,9 +444,9 @@ mod tests {
         let others: Vec<u32> = cache.order().iter().copied().filter(|&row| row != moved).collect();
         let before_others: Vec<u32> = before.iter().copied().filter(|&row| row != moved).collect();
         assert_eq!(others, before_others, "every other row kept its position");
+        println!("re-placing one row of a hundred thousand: {elapsed:?} (budget 100 ms)");
         #[cfg(not(debug_assertions))]
         assert!(elapsed.as_millis() < 100, "re-placement took {elapsed:?}");
-        let _ = elapsed;
         assert_eq!(cache.reposition(999_999, 1), None);
     }
 
@@ -474,9 +474,9 @@ mod tests {
         let warm = started.elapsed();
         assert_eq!(table.sorts_performed(), 2, "no full re-sort of the set");
         assert!(warm < cold, "warm sorts should not cost more than the cold ones");
+        println!("eight warm sorts over a hundred thousand rows: {warm:?} cold {cold:?} (budget 400 ms)");
         #[cfg(not(debug_assertions))]
         assert!(warm.as_millis() < 400, "eight warm sorts took {warm:?}");
-        let _ = warm;
     }
 
     #[test]

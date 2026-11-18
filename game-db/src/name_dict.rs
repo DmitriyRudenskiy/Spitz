@@ -521,8 +521,8 @@ mod tests {
         );
         // Debug builds spend most of their time elsewhere; the release number is the one the
         // 50 ms requirement is about.
+        println!("completion over a million names: {elapsed:?} (budget 50 ms)");
         #[cfg(not(debug_assertions))]
         assert!(elapsed.as_millis() < 50, "completion took {elapsed:?}");
-        let _ = elapsed;
     }
 }

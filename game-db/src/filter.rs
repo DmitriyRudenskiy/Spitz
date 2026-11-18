@@ -493,8 +493,8 @@ mod tests {
         assert!(report.rows_scanned < 30_000, "scanned {} of a million", report.rows_scanned);
         assert!(report.rows_matched > 0);
         assert_eq!(filter.matches(), report.rows_matched);
+        println!("a filtered million games: {elapsed:?} (budget 250 ms)");
         #[cfg(not(debug_assertions))]
         assert!(elapsed.as_millis() < 250, "filtering took {elapsed:?}");
-        let _ = elapsed;
     }
 }
