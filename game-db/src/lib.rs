@@ -7,5 +7,6 @@ pub mod filter;
 pub mod fold_data;
 pub mod header_record;
 pub mod name_dict;
+pub mod rating_list;
 pub mod session;
 pub mod sort_cache;

@@ -143,6 +143,27 @@ pub fn rotation_key(name: &str) -> String {
     }
 }
 
+/// The name in one canonical order: surname first, whatever order it arrived in. Two spellings of
+/// one name — "Ivanov, Peter" and "Peter Ivanov" — get the same key, which is what a lookup table
+/// of names needs even though sorting wants the order the user wrote.
+pub fn surname_key(name: &str) -> String {
+    let folded = fold(name);
+    if let Some((surname, given)) = folded.split_once(',') {
+        let (surname, given) = (surname.trim(), given.trim());
+        return match (surname.is_empty(), given.is_empty()) {
+            (true, _) => given.to_owned(),
+            (_, true) => surname.to_owned(),
+            _ => format!("{surname}, {given}"),
+        };
+    }
+    let words: Vec<&str> = folded.split_whitespace().collect();
+    match words.len() {
+        0 => String::new(),
+        1 => words[0].to_owned(),
+        count => format!("{}, {}", words[count - 1], words[..count - 1].join(" ")),
+    }
+}
+
 /// The key a completion is matched against: folded, with the spaces between words removed. The
 /// words themselves still bound where a match may start, so the spaces are information, not
 /// noise — they are just not typed.

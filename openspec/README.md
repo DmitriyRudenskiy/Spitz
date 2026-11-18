@@ -15,6 +15,10 @@ design questions, and the rules decide most review comments.
 
 ## Reading map
 
+Before the map: [`GLOSSARY.md`](../GLOSSARY.md) fixes the domain vocabulary (value, sweep, level,
+book class), and [`docs/adr/`](../docs/adr/) holds the decisions that outlive one change; a
+change's own `design.md` stays its decision log.
+
 **Understand the product in five minutes**
 `specs/app-shell` → `specs/board-ui` → `specs/engine-protocol` → `specs/move-selection`
 
