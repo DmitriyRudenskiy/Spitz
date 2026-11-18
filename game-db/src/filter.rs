@@ -469,6 +469,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "performance budget: runs on the reference machine only, ADR-0010 and budgets.yml"]
     fn a_filter_combination_narrows_a_million_games_quickly() {
         let rows = records(1_000_000);
         let index = PositionIndex::build(&rows, |r| r.white);

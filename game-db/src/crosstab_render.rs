@@ -394,25 +394,30 @@ mod tests {
 
     #[test]
     fn a_tied_placing_shows_the_rule_that_decided_it() {
+        // Two players level on score and tie-break, and one took the game between the two.
         let games = [
-            (0u32, 1u32, GameResult::WhiteWins),
-            (1, 2, GameResult::WhiteWins),
-            (2, 0, GameResult::WhiteWins),
-        ]
-        .into_iter()
-        .enumerate()
-        .map(|(row, (white, black, result))| GameRow {
-            white,
-            black,
-            white_rating: 1500,
-            black_rating: 1500,
-            round: row as i32 + 1,
-            date: Date::UNKNOWN,
-            result,
-            row,
-        })
-        .collect::<Vec<_>>();
-        let table = build(&games, &name_of, &Options { mode: Mode::AllPlayAll, ..Options::default() });
+            (0u32, 1u32, GameResult::WhiteWins), // Alpha beats Bravo, their only meeting
+            (0, 2, GameResult::WhiteWins),       // Alpha beats Charlie
+            (3, 0, GameResult::WhiteWins),       // Delta beats Alpha
+            (1, 3, GameResult::WhiteWins),       // Bravo beats Delta
+            (1, 4, GameResult::WhiteWins),       // Bravo beats Echo
+            (4, 2, GameResult::WhiteWins),       // Echo beats Charlie
+        ];
+        let rows: Vec<GameRow> = games
+            .into_iter()
+            .enumerate()
+            .map(|(row, (white, black, result))| GameRow {
+                white,
+                black,
+                white_rating: 1500,
+                black_rating: 1500,
+                round: row as i32 + 1,
+                date: chess_core::date::Date::UNKNOWN,
+                result,
+                row,
+            })
+            .collect();
+        let table = build(&rows, &name_of, &Options { mode: Mode::AllPlayAll, ..Options::default() });
         let text = to_plain(&table, false);
         assert!(text.contains("head-to-head"), "the deciding rule is printed\n{text}");
         assert!(to_html(&table, false).contains("head-to-head"));

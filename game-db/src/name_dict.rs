@@ -503,6 +503,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "performance budget: runs on the reference machine only, ADR-0010 and budgets.yml"]
     fn completion_stays_inside_its_budget_on_a_large_dictionary() {
         let mut dict = NameDictionary::new(NameKind::Player);
         for i in 0..1_000_000u32 {

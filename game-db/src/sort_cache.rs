@@ -451,6 +451,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "performance budget: runs on the reference machine only, ADR-0010 and budgets.yml"]
     fn re_sorting_a_cached_view_does_not_sort_again() {
         let count = 100_000u32;
         let rows = rows(count);

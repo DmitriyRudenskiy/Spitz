@@ -466,6 +466,7 @@ A01 1. e4 c5        # the same sequence and code again
     }
 
     #[test]
+    #[ignore = "performance budget: runs on the reference machine only, ADR-0010 and budgets.yml"]
     fn a_million_games_are_classified_inside_the_budget() {
         let dir = std::env::temp_dir().join(format!("spitz-eco-budget-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();

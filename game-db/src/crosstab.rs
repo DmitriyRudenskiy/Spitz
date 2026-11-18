@@ -350,12 +350,13 @@ pub fn build<'a>(
     let (mode, mode_reason) = detect_mode(options.mode, count, kept.len());
     apply_tie_breaks(&mut rows, &pairs, mode);
 
+    let head_to_head = head_to_head_points(&rows, &pairs);
     let mut ranked: Vec<usize> = (0..count).collect();
-    ranked.sort_by(|a, b| rank_order(&rows, &pairs, *a, *b));
+    ranked.sort_by(|a, b| rank_order(&rows, &head_to_head, *a, *b));
     for (place, at) in ranked.iter().enumerate() {
         rows[*at].rank = place + 1;
         if place > 0 {
-            rows[*at].decided_by = decided_by(&rows, &pairs, ranked[place - 1], *at);
+            rows[*at].decided_by = decided_by(&rows, &head_to_head, ranked[place - 1], *at);
         }
     }
 
@@ -423,24 +424,50 @@ fn apply_tie_breaks(rows: &mut [PlayerRow], pairs: &[Vec<Pair>], mode: Mode) {
 }
 
 /// The rule that put `above` over `below`, in the order the rules were tried.
-fn decided_by(rows: &[PlayerRow], pairs: &[Vec<Pair>], above: usize, below: usize) -> &'static str {
+fn decided_by(rows: &[PlayerRow], head_to_head: &[i64], above: usize, below: usize) -> &'static str {
     if rows[above].score != rows[below].score {
         "score"
     } else if rows[above].tie_break != rows[below].tie_break {
         "tie-break"
-    } else if pairs[above][below].score() != pairs[below][above].score() {
+    } else if head_to_head[above] != head_to_head[below] {
         "head-to-head"
     } else {
         "name"
     }
 }
 
-fn rank_order(rows: &[PlayerRow], pairs: &[Vec<Pair>], a: usize, b: usize) -> Ordering {
+/// What the games between the tied players are worth to each of them: the usual head-to-head
+/// tie-break, reduced to one number per player.
+///
+/// Reducing it to a number is not a convenience. Head-to-head taken pairwise is not transitive —
+/// three players who each beat the next are a real result of games between them — so putting the
+/// pair's own score inside a comparison function does not order anybody, and Rust's sort says so
+/// outright rather than guessing. A player's points within their own tied group is transitive, and
+/// for the two-player case it is exactly the result between them.
+///
+/// ponytail: every player against every other, so a quarter of a million comparisons at the
+/// 500-player cap. Bounded by the cap; a bucketed pass per tied group is the upgrade if it shows.
+fn head_to_head_points(rows: &[PlayerRow], pairs: &[Vec<Pair>]) -> Vec<i64> {
+    let mut points = vec![0i64; rows.len()];
+    for a in 0..rows.len() {
+        for b in a + 1..rows.len() {
+            // Only players tied on everything above head-to-head settle it in that group.
+            if rows[a].score == rows[b].score && rows[a].tie_break == rows[b].tie_break {
+                let margin = pairs[a][b].score().0 as i64 - pairs[b][a].score().0 as i64;
+                points[a] += margin;
+                points[b] -= margin;
+            }
+        }
+    }
+    points
+}
+
+fn rank_order(rows: &[PlayerRow], head_to_head: &[i64], a: usize, b: usize) -> Ordering {
     rows[b]
         .score
         .cmp(&rows[a].score)
         .then_with(|| rows[b].tie_break.cmp(&rows[a].tie_break))
-        .then_with(|| pairs[b][a].score().cmp(&pairs[a][b].score()))
+        .then_with(|| head_to_head[b].cmp(&head_to_head[a]))
         .then_with(|| rows[a].name.cmp(&rows[b].name))
 }
 
@@ -563,9 +590,50 @@ mod tests {
         assert!(table.players.iter().all(|row| row.tie_break.is_none()), "knockout has no tie-break");
     }
 
+    /// The games that leave Alpha and Bravo level on everything but their meeting: both two wins
+    /// and one loss, and — which is why Echo is here — the field each of them beat is worth the
+    /// same, so the tie-break comes out equal too and only the meeting separates them.
+    fn level_meeting() -> Vec<GameRow> {
+        let games = [
+            (0u32, 1u32, GameResult::WhiteWins), // Alpha beats Bravo, their only meeting
+            (0, 2, GameResult::WhiteWins),       // Alpha beats Charlie
+            (3, 0, GameResult::WhiteWins),       // Delta beats Alpha
+            (1, 3, GameResult::WhiteWins),       // Bravo beats Delta
+            (1, 4, GameResult::WhiteWins),       // Bravo beats Echo
+            (4, 2, GameResult::WhiteWins),       // Echo beats Charlie
+        ];
+        games
+            .into_iter()
+            .enumerate()
+            .map(|(row, (white, black, result))| GameRow {
+                white,
+                black,
+                white_rating: 1500,
+                black_rating: 1500,
+                round: row as i32 + 1,
+                date: Date::UNKNOWN,
+                result,
+                row,
+            })
+            .collect()
+    }
+
     #[test]
     fn head_to_head_breaks_an_equal_score_and_names_itself() {
-        // A beat B, B beat C, C beat A: all three scored the same, so the meeting decides.
+        let table = build_over(&level_meeting(), &Options { mode: Mode::AllPlayAll, ..Options::default() });
+        let mut ranked = table.players.clone();
+        ranked.sort_by_key(|row| row.rank);
+        let places: Vec<&str> = ranked.iter().map(|row| row.name.as_str()).collect();
+        assert_eq!(places[..2], ["Alpha, A", "Bravo, B"], "{places:?}");
+        assert_eq!(ranked[1].decided_by, "head-to-head", "their meeting decided it");
+        assert_eq!(ranked[0].rank, 1);
+    }
+
+    #[test]
+    fn a_cyclic_tie_is_not_decided_by_head_to_head_and_says_so() {
+        // Alpha beat Bravo, Bravo beat Charlie, Charlie beat Alpha. Pairwise, each of them beat
+        // someone the next lost to, which is why no comparison function can be built on it — and
+        // why the table falls through to the name rather than inventing an order.
         let games = [
             (0u32, 1u32, GameResult::WhiteWins),
             (1, 2, GameResult::WhiteWins),
@@ -587,14 +655,13 @@ mod tests {
         let table = build_over(&games, &Options { mode: Mode::AllPlayAll, ..Options::default() });
         let mut ranked = table.players.clone();
         ranked.sort_by_key(|row| row.rank);
-        let scores: Vec<i32> = ranked.iter().map(|row| row.score.0).collect();
-        assert!(scores.windows(2).all(|pair| pair[0] == pair[1]), "all three scored the same: {scores:?}");
         let places: Vec<&str> = ranked.iter().map(|row| row.name.as_str()).collect();
         assert_eq!(places, vec!["Alpha, A", "Bravo, B", "Charlie, C"], "{places:?}");
-        assert_eq!(ranked[1].decided_by, "head-to-head", "their meeting decided it");
-        assert_eq!(ranked[2].decided_by, "head-to-head");
-        assert_eq!(ranked[0].rank, 1);
-        assert_eq!(ranked[2].rank, 3);
+        assert!(
+            ranked.iter().skip(1).all(|row| row.decided_by == "name"),
+            "nothing decided it: {:?}",
+            ranked.iter().map(|row| (row.name.as_str(), row.decided_by)).collect::<Vec<_>>()
+        );
     }
 
     #[test]
