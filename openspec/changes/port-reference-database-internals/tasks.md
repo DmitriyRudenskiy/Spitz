@@ -33,10 +33,10 @@
 
 ## 6. Filter and sort cache (`game-db`)
 
-- [ ] 6.1 Implement the byte-per-game filter with lazy allocation, an atomic match count, resize, and fill, with tests for the lazily-unallocated case.
-- [ ] 6.2 Add filter-combination ordering by expected selectivity and report rows scanned versus index used, asserted on a 1,000,000-game fixture.
-- [ ] 6.3 Implement the sort-rank cache: background build, interrupt, refcount, and the 8-bytes-per-row ceiling; test that an interrupted build leaves the previous order usable.
-- [ ] 6.4 Implement single-row re-placement on edit and the 100 ms re-sort and paging tests over a 100,000-row view.
+- [x] 6.1 Implement the byte-per-game filter with lazy allocation, an atomic match count, resize, and fill, with tests for the lazily-unallocated case.
+- [x] 6.2 Add filter-combination ordering by expected selectivity and report rows scanned versus index used, asserted on a 1,000,000-game fixture.
+- [x] 6.3 Implement the sort-rank cache: background build, interrupt, refcount, and the 8-bytes-per-row ceiling; test that an interrupted build leaves the previous order usable.
+- [x] 6.4 Implement single-row re-placement on edit and the 100 ms re-sort and paging tests over a 100,000-row view.
 
 ## 7. Library sessions (`game-db`)
 

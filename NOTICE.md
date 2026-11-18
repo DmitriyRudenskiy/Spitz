@@ -28,8 +28,8 @@ exists, and no source file of this project may carry a copyleft header.
 | `game-db/src/name_dict.rs` | implemented | `src/namebase.h` | none |
 | `game-db/src/collation.rs` | implemented | `src/misc.h` (`strCaseCompare`, `strCompareRound`) | none |
 | `game-db/src/fold_data.rs` | implemented | none; generated from Unicode NFD data, not from the reference suite |
-| `game-db/src/filter.rs` | planned | `src/hfilter.h` (`Filter`) | none |
-| `game-db/src/sort_cache.rs` | planned | `src/sortcache.h`, `src/sortcache.cpp` | none |
+| `game-db/src/filter.rs` | implemented | `src/hfilter.h` (`Filter`) | none |
+| `game-db/src/sort_cache.rs` | implemented | `src/sortcache.h`, `src/sortcache.cpp` | none |
 | `game-db/src/session.rs` | planned | `src/dbasepool.cpp`, `src/filemap.h` | none |
 | `game-db/src/eco.rs` | planned | `src/scidbase.cpp` (ECO read and classification), the `.eco` code-file layout | none |
 | `game-db/src/crosstable.rs` | planned | `src/crosstab.h`, `src/crosstab.cpp` | none |
