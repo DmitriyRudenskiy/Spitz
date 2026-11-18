@@ -94,6 +94,15 @@ _Avoid_: configuration, preset
 
 ### Reporting
 
+**Reference hardware**:
+The one machine recorded in `docs/benchmarks/reference-hardware.md`; every performance number in
+a requirement is a promise about that machine and nothing else.
+_Avoid_: target machine, benchmark rig
+
+**Acceptance budget**:
+A number written into a SHALL before it was ever measured; binding in tests as written, relaxable
+only by a spec edit carrying a measured replacement.
+
 **Provenance**:
 Where a value, weight, or annotation came from — tablebase, engine (and which run), user, book.
 Every derived number in a report carries one.

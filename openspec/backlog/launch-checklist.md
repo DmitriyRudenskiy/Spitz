@@ -13,3 +13,7 @@ OpenSpec requirement; this file is the project's memory, and `openspec validate`
       `cargo deny` or equivalent for crate licenses that are incompatible with GPL distribution.
 - [ ] Release artifacts for Linux first-class platforms per ADR-0005 (packaging format is an
       open decision — see the change that adds CI release).
+- [ ] Fill in `docs/benchmarks/reference-hardware.md` (ADR-0008) — the seventeen budget clauses
+      are unverifiable until one machine is named.
+- [ ] Connect the self-hosted `reference` runner and give `budgets.yml` its nightly schedule
+      (ADR-0010).

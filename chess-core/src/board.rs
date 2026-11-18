@@ -449,126 +449,174 @@ fn back_rank(file: u8) -> Kind {
 mod tests {
     use super::*;
 
+    /// Squares by name, so a test says `e4` rather than 20 and cannot be off by a rank.
+    fn sq(name: &str) -> Square {
+        let file = name.as_bytes()[0] - b'a';
+        let rank = name.as_bytes()[1] - b'1';
+        rank * 8 + file
+    }
+
     fn piece(kind: Kind, colour: Colour) -> Piece {
         Piece { colour, kind }
     }
 
+    /// A board with only the two kings, ready for a position a start position cannot hold.
+    fn bare(kings: [(&str, Colour); 2]) -> Board {
+        let mut board = Board::empty();
+        for (name, colour) in kings {
+            board.place(sq(name), piece(Kind::King, colour));
+        }
+        board
+    }
+
     #[test]
     fn the_start_position_has_the_key_the_format_agrees_on() {
-        // Every book of the format contains the starting position, so its key is pinned here.
+        // gm2600.bin holds this key with its ten strongest opening moves, which is what pins it.
         assert_eq!(Board::start().key(), 0x463b96181691fc9c);
     }
 
     #[test]
     fn exactly_twenty_moves_are_legal_in_the_starting_position() {
         let start = Board::start();
-        let mut legal = 0;
+        let mut legal = Vec::new();
         for from in 0..64 {
             for to in 0..64 {
                 let mut board = start;
                 if board.apply(Move::simple(from, to)).is_ok() {
-                    legal += 1;
+                    legal.push((from, to));
                 }
             }
         }
-        assert_eq!(legal, 20);
+        assert_eq!(legal.len(), 20, "eight pawns two steps each, two knights three squares each");
+        assert!(legal.contains(&(sq("e2"), sq("e4"))), "a pawn may push two squares home");
+        assert!(legal.contains(&(sq("b1"), sq("c3"))), "the b1 knight may reach c3");
+        assert!(!legal.contains(&(sq("b1"), sq("b2"))), "but not onto its own pawn");
+        assert!(!legal.contains(&(sq("e1"), sq("e2"))), "nor onto its own pawn");
     }
 
     #[test]
     fn a_move_that_is_not_legal_is_refused_for_the_right_reason() {
         let mut board = Board::start();
-        assert_eq!(board.apply(Move::simple(8, 20)), Err(MoveError::BadGeometry), "a pawn does not L-move");
-        assert_eq!(board.apply(Move::simple(8, 16)), Ok(()), "one step");
-        assert_eq!(board.apply(Move::simple(12, 20)), Ok(()));
-        assert_eq!(board.apply(Move::simple(13, 21)), Err(MoveError::WrongColour), "white again");
-        assert_eq!(board.apply(Move::simple(1, 1)), Err(MoveError::BadGeometry), "nowhere to move");
-        assert_eq!(board.apply(Move::simple(20, 12)), Err(MoveError::Occupied), "own pawn in the way");
-        assert_eq!(board.apply(Move::simple(48, 0)), Err(MoveError::Empty), "nothing there");
+        assert_eq!(board.apply(Move::simple(sq("d4"), sq("d5"))), Err(MoveError::Empty), "nothing there");
+        assert_eq!(board.apply(Move::simple(sq("b1"), sq("b1"))), Err(MoveError::BadGeometry), "nowhere to move");
+        assert_eq!(board.apply(Move::simple(sq("c1"), sq("b2"))), Err(MoveError::Occupied), "own pawn in the way");
+        assert_eq!(board.apply(Move::simple(sq("a2"), sq("a5"))), Err(MoveError::BadGeometry), "a pawn does not hop");
+        assert_eq!(board.apply(Move::simple(sq("a2"), sq("a3"))), Ok(()), "one step");
+        assert_eq!(board.apply(Move::simple(sq("d2"), sq("d3"))), Err(MoveError::WrongColour), "white may not play twice");
+        board.turn = Colour::White;
+        assert_eq!(board.apply(Move::simple(sq("a3"), sq("a4"))), Ok(()), "the same pawn's next step");
+        board.turn = Colour::White;
+        assert_eq!(board.apply(Move::simple(sq("a4"), sq("a6"))), Err(MoveError::BadGeometry), "no second double step");
     }
 
     #[test]
-    fn a_pinned_piece_may_not_move_off_the_line() {
-        let mut board = Board::empty();
-        board.place(4, piece(Kind::King, Colour::White));
-        board.place(12, piece(Kind::Pawn, Colour::White));
-        board.place(20, piece(Kind::Bishop, Colour::White));
-        board.place(36, piece(Kind::Queen, Colour::Black));
-        board.place(60, piece(Kind::King, Colour::Black));
-        assert!(board.is_attacked(12, Colour::Black), "the pawn down the file is attacked");
-        assert_eq!(board.apply(Move::simple(20, 28)), Err(MoveError::LeavesKingInCheck));
-        assert_eq!(board.apply(Move::simple(20, 12 + 8)), Err(MoveError::Occupied), "still pinned either way");
+    fn a_pinned_bishop_may_not_step_off_the_line() {
+        let mut board = bare([("e1", Colour::White), ("e8", Colour::Black)]);
+        board.place(sq("e2"), piece(Kind::Bishop, Colour::White));
+        board.place(sq("e4"), piece(Kind::Queen, Colour::Black));
+        board.place(sq("a2"), piece(Kind::Pawn, Colour::White));
+        assert!(board.is_attacked(sq("e2"), Colour::Black), "the bishop's square is attacked down the file");
+        assert_eq!(board.apply(Move::simple(sq("e2"), sq("d3"))), Err(MoveError::LeavesKingInCheck), "off the file");
+        assert_eq!(board.apply(Move::simple(sq("a2"), sq("a3"))), Ok(()), "another piece may still move");
     }
 
     #[test]
     fn a_pawn_may_be_taken_on_the_way_past() {
-        let mut board = Board::empty();
-        board.place(4, piece(Kind::King, Colour::White));
-        board.place(60, piece(Kind::King, Colour::Black));
-        board.place(36, piece(Kind::Pawn, Colour::White)); // e5
-        board.place(51, piece(Kind::Pawn, Colour::Black)); // d7
+        let mut board = bare([("e1", Colour::White), ("e8", Colour::Black)]);
+        board.place(sq("e5"), piece(Kind::Pawn, Colour::White));
+        board.place(sq("d7"), piece(Kind::Pawn, Colour::Black));
         board.turn = Colour::Black;
-        assert!(board.apply(Move::simple(51, 35)).is_ok(), "black pushes two squares beside the pawn");
-        assert_eq!(board.en_passant(), Some(43), "d6");
-        assert!(board.apply(Move::simple(36, 43)).is_ok(), "white takes on the way past");
-        assert_eq!(board.piece_at(35), None, "the captured pawn is gone from the board");
-        assert_eq!(board.piece_at(43).map(|p| p.kind), Some(Kind::Pawn));
+        assert!(board.apply(Move::simple(sq("d7"), sq("d5"))).is_ok(), "black pushes two squares beside the pawn");
+        assert_eq!(board.en_passant(), Some(sq("d6")));
+        assert!(board.apply(Move::simple(sq("e5"), sq("d6"))).is_ok(), "white takes on the way past");
+        assert_eq!(board.piece_at(sq("d5")), None, "the captured pawn is gone from the board");
+        assert_eq!(board.piece_at(sq("d6")).map(|p| p.kind), Some(Kind::Pawn));
+        assert_eq!(board.en_passant(), None, "and the right is spent");
+    }
+
+    #[test]
+    fn a_pawn_only_may_be_taken_on_the_way_past_at_once() {
+        let mut board = bare([("e1", Colour::White), ("e8", Colour::Black)]);
+        board.place(sq("e5"), piece(Kind::Pawn, Colour::White));
+        board.place(sq("d7"), piece(Kind::Pawn, Colour::Black));
+        board.place(sq("a7"), piece(Kind::Pawn, Colour::Black));
+        board.turn = Colour::Black;
+        board.apply(Move::simple(sq("d7"), sq("d5"))).unwrap();
+        board.turn = Colour::Black; // white declines, black returns
+        board.apply(Move::simple(sq("a7"), sq("a6"))).unwrap();
+        board.turn = Colour::White;
+        assert_eq!(board.en_passant(), None, "the right lapsed with the move that declined it");
+        assert_eq!(board.apply(Move::simple(sq("e5"), sq("d6"))), Err(MoveError::BadGeometry));
     }
 
     #[test]
     fn a_pawn_reaching_the_end_must_say_what_it_became() {
-        let mut board = Board::empty();
-        board.place(0, piece(Kind::King, Colour::White));
-        board.place(48, piece(Kind::Pawn, Colour::White)); // a7
-        board.place(63, piece(Kind::King, Colour::Black));
-        assert_eq!(board.apply(Move::simple(48, 56)), Err(MoveError::NeedsPromotion));
-        let queen = Move { from: 48, to: 56, promotion: Some(Kind::Queen) };
+        let mut board = bare([("a1", Colour::White), ("h8", Colour::Black)]);
+        board.place(sq("a7"), piece(Kind::Pawn, Colour::White));
+        assert_eq!(board.apply(Move::simple(sq("a7"), sq("a8"))), Err(MoveError::NeedsPromotion));
+        assert_eq!(board.apply(Move { from: sq("a7"), to: sq("a8"), promotion: Some(Kind::King) }), Err(MoveError::BadPromotion), "not to a king");
+        let queen = Move { from: sq("a7"), to: sq("a8"), promotion: Some(Kind::Queen) };
         assert!(board.apply(queen).is_ok());
-        assert_eq!(board.piece_at(56).map(|p| p.kind), Some(Kind::Queen));
-        assert_eq!(board.apply(Move { from: 56, to: 48, promotion: Some(Kind::Queen) }), Err(MoveError::BadPromotion), "a queen does not promote");
-        let mut board = Board::empty();
-        board.place(0, piece(Kind::King, Colour::White));
-        board.place(8, piece(Kind::Pawn, Colour::White));
-        board.place(63, piece(Kind::King, Colour::Black));
-        assert_eq!(board.apply(Move { from: 8, to: 16, promotion: Some(Kind::King) }), Err(MoveError::BadPromotion));
+        assert_eq!(board.piece_at(sq("a8")).map(|p| p.kind), Some(Kind::Queen));
+        assert_eq!(board.apply(Move { from: sq("a8"), to: sq("a7"), promotion: Some(Kind::Queen) }), Err(MoveError::WrongColour));
+        let mut board = bare([("a1", Colour::White), ("h8", Colour::Black)]);
+        board.place(sq("a3"), piece(Kind::Pawn, Colour::White));
+        assert_eq!(board.apply(Move { from: sq("a3"), to: sq("a4"), promotion: Some(Kind::Queen) }), Err(MoveError::BadPromotion), "a promotion where none is due");
     }
 
     #[test]
     fn castling_needs_the_right_the_rook_and_an_empty_way() {
         let mut board = Board::start();
-        board.squares[5] = None;
-        board.squares[6] = None;
-        assert!(board.apply(Move::simple(4, 6)).is_ok(), "white castles out");
-        assert_eq!(board.piece_at(6).map(|p| p.kind), Some(Kind::King));
-        assert_eq!(board.piece_at(5).map(|p| p.kind), Some(Kind::Rook), "the rook came over");
+        board.squares[sq("f1") as usize] = None;
+        board.squares[sq("g1") as usize] = None;
+        assert!(board.apply(Move::simple(sq("e1"), sq("g1"))).is_ok(), "white castles out");
+        assert_eq!(board.piece_at(sq("g1")).map(|p| p.kind), Some(Kind::King));
+        assert_eq!(board.piece_at(sq("f1")).map(|p| p.kind), Some(Kind::Rook), "the rook came over");
         assert_eq!(board.castling() & (CASTLE_WHITE_KING | CASTLE_WHITE_QUEEN), 0, "the right is spent");
 
         let mut board = Board::start();
-        board.squares[5] = None;
-        board.squares[6] = Some(piece(Kind::Bishop, Colour::White));
-        assert_eq!(board.apply(Move::simple(4, 6)), Err(MoveError::NoCastle), "a piece in the way");
+        board.squares[sq("g1") as usize] = Some(piece(Kind::Bishop, Colour::White));
+        assert_eq!(board.apply(Move::simple(sq("e1"), sq("g1"))), Err(MoveError::Occupied), "the destination is taken");
 
         let mut board = Board::start();
+        board.squares[sq("f1") as usize] = Some(piece(Kind::Queen, Colour::White));
+        board.squares[sq("g1") as usize] = None;
+        assert_eq!(board.apply(Move::simple(sq("e1"), sq("g1"))), Err(MoveError::NoCastle), "the way over is blocked");
+
+        let mut board = Board::start();
+        board.squares[sq("f1") as usize] = None;
+        board.squares[sq("g1") as usize] = None;
+        board.castling = CASTLE_BLACK_KING;
+        assert_eq!(board.apply(Move::simple(sq("e1"), sq("g1"))), Err(MoveError::NoCastle), "the right was spent");
+
+        let mut board = Board::start();
+        board.squares[sq("f1") as usize] = None;
+        board.squares[sq("g1") as usize] = None;
+        board.squares[sq("b1") as usize] = None;
+        board.squares[sq("c1") as usize] = None;
+        board.squares[sq("d1") as usize] = None;
+        board.castling = CASTLE_WHITE_QUEEN;
+        assert!(board.apply(Move::simple(sq("e1"), sq("c1"))).is_ok(), "and queen-side");
+        assert_eq!(board.piece_at(sq("d1")).map(|p| p.kind), Some(Kind::Rook));
+    }
+
+    #[test]
+    fn a_king_may_not_castle_through_a_square_that_is_attacked() {
+        let mut board = bare([("e8", Colour::Black), ("a1", Colour::White)]);
+        board.place(sq("a8"), piece(Kind::Rook, Colour::Black));
+        board.place(sq("h8"), piece(Kind::Rook, Colour::Black));
+        board.place(sq("f1"), piece(Kind::Queen, Colour::White)); // looking down the f-file at f8
         board.castling = CASTLE_BLACK_KING | CASTLE_BLACK_QUEEN;
         board.turn = Colour::Black;
-        board.squares[61] = None;
-        board.squares[62] = None;
-        board.squares[4] = Some(piece(Kind::Queen, Colour::White));
-        assert_eq!(board.apply(Move::simple(60, 62)), Err(MoveError::CastleIntoCheck), "through the queen's square");
-
-        let mut board = Board::start();
-        board.squares[1] = None;
-        board.squares[2] = None;
-        board.squares[3] = None;
-        board.castling = CASTLE_WHITE_QUEEN;
-        assert!(board.apply(Move::simple(4, 2)).is_ok(), "and queen-side");
-        assert_eq!(board.piece_at(3).map(|p| p.kind), Some(Kind::Rook));
+        assert_eq!(board.apply(Move::simple(sq("e8"), sq("g8"))), Err(MoveError::CastleIntoCheck), "through the queen's file");
+        assert!(board.apply(Move::simple(sq("e8"), sq("c8"))).is_ok(), "the other side is clear");
     }
 
     #[test]
     fn a_refused_move_leaves_the_board_alone() {
         let before = Board::start();
         let mut board = before;
-        assert!(board.apply(Move::simple(8, 20)).is_err());
+        assert!(board.apply(Move::simple(sq("e2"), sq("e5"))).is_err());
         assert_eq!(board.key(), before.key());
     }
 
@@ -576,7 +624,7 @@ mod tests {
     fn the_key_changes_when_any_part_of_the_position_changes() {
         let start = Board::start();
         let mut after = start;
-        after.apply(Move::simple(12, 20)).unwrap();
+        after.apply(Move::simple(sq("d2"), sq("d4"))).unwrap();
         assert_ne!(start.key(), after.key());
         let mut rights = start;
         rights.castling ^= CASTLE_WHITE_KING;
@@ -585,21 +633,21 @@ mod tests {
         turn.turn = Colour::Black;
         assert_ne!(start.key(), turn.key());
         let mut ep = start;
-        ep.ep = Some(16);
+        ep.ep = Some(sq("a3"));
         assert_ne!(start.key(), ep.key());
     }
 
     #[test]
     fn a_key_is_a_fold_of_the_position_not_of_its_history() {
-        // Two ways of reaching the same position give the same key, which is the whole point.
+        // Two move orders to one position give one key, which is the whole point of the key.
         let mut one = Board::start();
-        one.apply(Move::simple(1, 17)).unwrap(); // Nc3
-        one.apply(Move::simple(57, 49)).unwrap();
-        one.apply(Move::simple(17, 26)).unwrap(); // Nb5
+        for (from, to) in [("e2", "e4"), ("e7", "e5"), ("b1", "c3"), ("b8", "c6")] {
+            one.apply(Move::simple(sq(from), sq(to))).unwrap();
+        }
         let mut two = Board::start();
-        two.apply(Move::simple(1, 17)).unwrap();
-        two.apply(Move::simple(56, 48)).unwrap();
-        two.apply(Move::simple(17, 26)).unwrap();
+        for (from, to) in [("b1", "c3"), ("b8", "c6"), ("e2", "e4"), ("e7", "e5")] {
+            two.apply(Move::simple(sq(from), sq(to))).unwrap();
+        }
         assert_eq!(one.key(), two.key(), "same position, same key");
         assert_ne!(one.key(), Board::start().key());
     }

@@ -1,0 +1,14 @@
+# Performance budgets gate nothing here (ADR-0010): they run on the reference
+# machine (ADR-0008), marked #[ignore] in the test suite, and their output is a
+# benchmark report, not a red X on a pull request. Add the nightly schedule when
+# the self-hosted `reference` runner is actually connected.
+name: performance budgets
+on:
+  workflow_dispatch:
+jobs:
+  budgets:
+    runs-on: [self-hosted, reference]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --release --workspace --locked -- --ignored
