@@ -82,7 +82,11 @@ pub struct Move {
 
 impl Move {
     pub const fn simple(from: Square, to: Square) -> Move {
-        Move { from, to, promotion: None }
+        Move {
+            from,
+            to,
+            promotion: None,
+        }
     }
 }
 
@@ -126,8 +130,16 @@ pub struct Board {
     kings: [Option<Square>; 2],
 }
 
-const KNIGHT_STEPS: [(i8, i8); 8] =
-    [(1, 2), (2, 1), (2, -1), (1, -2), (-1, -2), (-2, -1), (-2, 1), (-1, 2)];
+const KNIGHT_STEPS: [(i8, i8); 8] = [
+    (1, 2),
+    (2, 1),
+    (2, -1),
+    (1, -2),
+    (-1, -2),
+    (-2, -1),
+    (-2, 1),
+    (-1, 2),
+];
 const DIAGONALS: [(i8, i8); 4] = [(1, 1), (1, -1), (-1, 1), (-1, -1)];
 const STRAIGHTS: [(i8, i8); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
 
@@ -135,12 +147,37 @@ impl Board {
     /// The position every book starts from.
     pub fn start() -> Board {
         let mut board = Board::empty();
-        board.castling = CASTLE_WHITE_KING | CASTLE_WHITE_QUEEN | CASTLE_BLACK_KING | CASTLE_BLACK_QUEEN;
+        board.castling =
+            CASTLE_WHITE_KING | CASTLE_WHITE_QUEEN | CASTLE_BLACK_KING | CASTLE_BLACK_QUEEN;
         for file in 0..8 {
-            board.place(square(file, 0), Piece { colour: Colour::White, kind: back_rank(file) });
-            board.place(square(file, 1), Piece { colour: Colour::White, kind: Kind::Pawn });
-            board.place(square(file, 6), Piece { colour: Colour::Black, kind: Kind::Pawn });
-            board.place(square(file, 7), Piece { colour: Colour::Black, kind: back_rank(file) });
+            board.place(
+                square(file, 0),
+                Piece {
+                    colour: Colour::White,
+                    kind: back_rank(file),
+                },
+            );
+            board.place(
+                square(file, 1),
+                Piece {
+                    colour: Colour::White,
+                    kind: Kind::Pawn,
+                },
+            );
+            board.place(
+                square(file, 6),
+                Piece {
+                    colour: Colour::Black,
+                    kind: Kind::Pawn,
+                },
+            );
+            board.place(
+                square(file, 7),
+                Piece {
+                    colour: Colour::Black,
+                    kind: back_rank(file),
+                },
+            );
         }
         board
     }
@@ -174,7 +211,15 @@ impl Board {
                 kings[piece.colour as usize] = Some(at as Square);
             }
         }
-        Board { squares, turn, castling, ep_field: ep, halfmove, fullmove, kings }
+        Board {
+            squares,
+            turn,
+            castling,
+            ep_field: ep,
+            halfmove,
+            fullmove,
+            kings,
+        }
     }
 
     fn place(&mut self, at: Square, piece: Piece) {
@@ -204,7 +249,8 @@ impl Board {
             return None;
         }
         let pawn = |slot: Square| {
-            self.piece_at(slot).is_some_and(|p| p.colour == mover && p.kind == Kind::Pawn)
+            self.piece_at(slot)
+                .is_some_and(|p| p.colour == mover && p.kind == Kind::Pawn)
         };
         // The pawn that takes stands beside the square jumped, one rank back from it.
         let behind = if white { at - 8 } else { at + 8 };
@@ -260,20 +306,29 @@ impl Board {
 
     /// Is `at` attacked by any piece of `by`?
     pub fn is_attacked(&self, at: Square, by: Colour) -> bool {
-        let pawn = Piece { colour: by, kind: Kind::Pawn };
+        let pawn = Piece {
+            colour: by,
+            kind: Kind::Pawn,
+        };
         let below = if by == Colour::White { -1 } else { 1 };
         for step in [-1i8, 1] {
             if self.walk(at, step, below) == Some(pawn) {
                 return true;
             }
         }
-        let knight = Piece { colour: by, kind: Kind::Knight };
+        let knight = Piece {
+            colour: by,
+            kind: Kind::Knight,
+        };
         for (dx, dy) in KNIGHT_STEPS {
             if self.walk(at, dx, dy) == Some(knight) {
                 return true;
             }
         }
-        let king = Piece { colour: by, kind: Kind::King };
+        let king = Piece {
+            colour: by,
+            kind: Kind::King,
+        };
         for dx in -1..=1 {
             for dy in -1..=1 {
                 if (dx, dy) != (0, 0) && self.walk(at, dx, dy) == Some(king) {
@@ -281,9 +336,18 @@ impl Board {
                 }
             }
         }
-        let bishop = Piece { colour: by, kind: Kind::Bishop };
-        let rook = Piece { colour: by, kind: Kind::Rook };
-        let queen = Piece { colour: by, kind: Kind::Queen };
+        let bishop = Piece {
+            colour: by,
+            kind: Kind::Bishop,
+        };
+        let rook = Piece {
+            colour: by,
+            kind: Kind::Rook,
+        };
+        let queen = Piece {
+            colour: by,
+            kind: Kind::Queen,
+        };
         for (dx, dy) in DIAGONALS {
             if matches!(self.ray(at, dx, dy), Some(p) if p == bishop || p == queen) {
                 return true;
@@ -362,7 +426,10 @@ impl Board {
         next.advance_clocks(mover, captured.is_some());
         next.squares[mv.from as usize] = None;
         next.squares[mv.to as usize] = Some(match mv.promotion {
-            Some(kind) => Piece { colour: mover.colour, kind },
+            Some(kind) => Piece {
+                colour: mover.colour,
+                kind,
+            },
             None => mover,
         });
         if mover.kind == Kind::King {
@@ -374,13 +441,17 @@ impl Board {
             && file_of(mv.from) != file_of(mv.to)
             && self.en_passant() == Some(mv.to)
         {
-            let behind = (mv.to as i8 + if mover.colour == Colour::White { -8 } else { 8 }) as usize;
+            let behind =
+                (mv.to as i8 + if mover.colour == Colour::White { -8 } else { 8 }) as usize;
             next.squares[behind] = None;
         }
         next.turn = self.turn.other();
         next.ep_field = skipped_over(mv, mover);
         next.update_castling(mv);
-        if next.king_square(mover.colour).is_some_and(|king| next.is_attacked(king, mover.colour.other())) {
+        if next
+            .king_square(mover.colour)
+            .is_some_and(|king| next.is_attacked(king, mover.colour.other()))
+        {
             return Err(MoveError::LeavesKingInCheck);
         }
         *self = next;
@@ -414,14 +485,23 @@ impl Board {
             Kind::Knight => (adx, ady) == (1, 2) || (adx, ady) == (2, 1),
             Kind::King => adx <= 1 && ady <= 1,
             Kind::Bishop => adx == ady && adx != 0 && self.path_clear(mv.from, mv.to),
-            Kind::Rook => (dx == 0 || dy == 0) && (dx != 0 || dy != 0) && self.path_clear(mv.from, mv.to),
-            Kind::Queen => (dx == 0 || dy == 0 || adx == ady) && (dx != 0 || dy != 0) && self.path_clear(mv.from, mv.to),
+            Kind::Rook => {
+                (dx == 0 || dy == 0) && (dx != 0 || dy != 0) && self.path_clear(mv.from, mv.to)
+            }
+            Kind::Queen => {
+                (dx == 0 || dy == 0 || adx == ady)
+                    && (dx != 0 || dy != 0)
+                    && self.path_clear(mv.from, mv.to)
+            }
         }
     }
 
     fn path_clear(&self, from: Square, to: Square) -> bool {
         let (mut file, mut rank) = (file_of(from) as i8, rank_of(from) as i8);
-        let (dx, dy) = ((file_of(to) as i8 - file).signum(), (rank_of(to) as i8 - rank).signum());
+        let (dx, dy) = (
+            (file_of(to) as i8 - file).signum(),
+            (rank_of(to) as i8 - rank).signum(),
+        );
         loop {
             file += dx;
             rank += dy;
@@ -441,8 +521,20 @@ impl Board {
         let (right, king_from, rook_from, empty, safe) = match (mover.colour, king_side) {
             (Colour::White, true) => (CASTLE_WHITE_KING, 4u8, 7u8, &[5u8, 6][..], &[4u8, 5, 6][..]),
             (Colour::White, false) => (CASTLE_WHITE_QUEEN, 4, 0, &[1, 2, 3][..], &[4u8, 2, 3][..]),
-            (Colour::Black, true) => (CASTLE_BLACK_KING, 60, 63, &[61, 62][..], &[60u8, 61, 62][..]),
-            (Colour::Black, false) => (CASTLE_BLACK_QUEEN, 60, 56, &[57, 58, 59][..], &[60u8, 58, 59][..]),
+            (Colour::Black, true) => (
+                CASTLE_BLACK_KING,
+                60,
+                63,
+                &[61, 62][..],
+                &[60u8, 61, 62][..],
+            ),
+            (Colour::Black, false) => (
+                CASTLE_BLACK_QUEEN,
+                60,
+                56,
+                &[57, 58, 59][..],
+                &[60u8, 58, 59][..],
+            ),
         };
         if mv.from != king_from || mv.to as i8 != king_from as i8 + if king_side { 2 } else { -2 } {
             return Err(MoveError::NoCastle);
@@ -450,7 +542,10 @@ impl Board {
         if self.castling & right == 0 {
             return Err(MoveError::NoCastle);
         }
-        let rook = Piece { colour: mover.colour, kind: Kind::Rook };
+        let rook = Piece {
+            colour: mover.colour,
+            kind: Kind::Rook,
+        };
         if self.squares[rook_from as usize] != Some(rook) {
             return Err(MoveError::NoCastle);
         }
@@ -504,7 +599,6 @@ impl Board {
             }
         }
     }
-
 }
 
 fn back_rank(file: u8) -> Kind {
@@ -515,6 +609,27 @@ fn back_rank(file: u8) -> Kind {
         3 => Kind::Queen,
         _ => Kind::King,
     }
+}
+
+/// A square as a FEN, a PGN and a UCI move all write it.
+pub fn square_name(at: Square) -> String {
+    let mut name = String::with_capacity(2);
+    name.push(char::from(b'a' + file_of(at)));
+    name.push(char::from(b'1' + rank_of(at)));
+    name
+}
+
+/// Two characters as a square, or nothing when they are not one.
+pub fn square_from_name(name: &str) -> Option<Square> {
+    let bytes = name.as_bytes();
+    if bytes.len() != 2 || !bytes[0].is_ascii_lowercase() || !bytes[1].is_ascii_digit() {
+        return None;
+    }
+    let (file, rank) = (bytes[0] - b'a', bytes[1] - b'1');
+    if file > 7 || rank > 7 {
+        return None;
+    }
+    Some(rank * 8 + file)
 }
 
 /// The square a double pawn push jumped over, which is the square a FEN names on the next line —
@@ -552,8 +667,14 @@ mod tests {
         board.place(sq("a8"), piece(Kind::King, Colour::Black));
         board.place(sq("b4"), piece(Kind::Bishop, Colour::Black));
         board.castling = CASTLE_WHITE_KING;
-        assert!(board.is_attacked(sq("e1"), Colour::Black), "the king is in check");
-        assert_eq!(board.apply(Move::simple(sq("e1"), sq("g1"))), Err(MoveError::CastleIntoCheck));
+        assert!(
+            board.is_attacked(sq("e1"), Colour::Black),
+            "the king is in check"
+        );
+        assert_eq!(
+            board.apply(Move::simple(sq("e1"), sq("g1"))),
+            Err(MoveError::CastleIntoCheck)
+        );
     }
 
     /// A board with only the two kings, ready for a position a start position cannot hold.
@@ -583,26 +704,74 @@ mod tests {
                 }
             }
         }
-        assert_eq!(legal.len(), 20, "eight pawns two steps each, two knights three squares each");
-        assert!(legal.contains(&(sq("e2"), sq("e4"))), "a pawn may push two squares home");
-        assert!(legal.contains(&(sq("b1"), sq("c3"))), "the b1 knight may reach c3");
-        assert!(!legal.contains(&(sq("b1"), sq("b2"))), "but not onto its own pawn");
-        assert!(!legal.contains(&(sq("e1"), sq("e2"))), "nor onto its own pawn");
+        assert_eq!(
+            legal.len(),
+            20,
+            "eight pawns two steps each, two knights three squares each"
+        );
+        assert!(
+            legal.contains(&(sq("e2"), sq("e4"))),
+            "a pawn may push two squares home"
+        );
+        assert!(
+            legal.contains(&(sq("b1"), sq("c3"))),
+            "the b1 knight may reach c3"
+        );
+        assert!(
+            !legal.contains(&(sq("b1"), sq("b2"))),
+            "but not onto its own pawn"
+        );
+        assert!(
+            !legal.contains(&(sq("e1"), sq("e2"))),
+            "nor onto its own pawn"
+        );
     }
 
     #[test]
     fn a_move_that_is_not_legal_is_refused_for_the_right_reason() {
         let mut board = Board::start();
-        assert_eq!(board.apply(Move::simple(sq("d4"), sq("d5"))), Err(MoveError::Empty), "nothing there");
-        assert_eq!(board.apply(Move::simple(sq("b1"), sq("b1"))), Err(MoveError::BadGeometry), "nowhere to move");
-        assert_eq!(board.apply(Move::simple(sq("c1"), sq("b2"))), Err(MoveError::Occupied), "own pawn in the way");
-        assert_eq!(board.apply(Move::simple(sq("a2"), sq("a5"))), Err(MoveError::BadGeometry), "a pawn does not hop");
-        assert_eq!(board.apply(Move::simple(sq("a2"), sq("a3"))), Ok(()), "one step");
-        assert_eq!(board.apply(Move::simple(sq("d2"), sq("d3"))), Err(MoveError::WrongColour), "white may not play twice");
+        assert_eq!(
+            board.apply(Move::simple(sq("d4"), sq("d5"))),
+            Err(MoveError::Empty),
+            "nothing there"
+        );
+        assert_eq!(
+            board.apply(Move::simple(sq("b1"), sq("b1"))),
+            Err(MoveError::BadGeometry),
+            "nowhere to move"
+        );
+        assert_eq!(
+            board.apply(Move::simple(sq("c1"), sq("b2"))),
+            Err(MoveError::Occupied),
+            "own pawn in the way"
+        );
+        assert_eq!(
+            board.apply(Move::simple(sq("a2"), sq("a5"))),
+            Err(MoveError::BadGeometry),
+            "a pawn does not hop"
+        );
+        assert_eq!(
+            board.apply(Move::simple(sq("a2"), sq("a3"))),
+            Ok(()),
+            "one step"
+        );
+        assert_eq!(
+            board.apply(Move::simple(sq("d2"), sq("d3"))),
+            Err(MoveError::WrongColour),
+            "white may not play twice"
+        );
         board.turn = Colour::White;
-        assert_eq!(board.apply(Move::simple(sq("a3"), sq("a4"))), Ok(()), "the same pawn's next step");
+        assert_eq!(
+            board.apply(Move::simple(sq("a3"), sq("a4"))),
+            Ok(()),
+            "the same pawn's next step"
+        );
         board.turn = Colour::White;
-        assert_eq!(board.apply(Move::simple(sq("a4"), sq("a6"))), Err(MoveError::BadGeometry), "no second double step");
+        assert_eq!(
+            board.apply(Move::simple(sq("a4"), sq("a6"))),
+            Err(MoveError::BadGeometry),
+            "no second double step"
+        );
     }
 
     #[test]
@@ -611,9 +780,20 @@ mod tests {
         board.place(sq("e2"), piece(Kind::Bishop, Colour::White));
         board.place(sq("e4"), piece(Kind::Queen, Colour::Black));
         board.place(sq("a2"), piece(Kind::Pawn, Colour::White));
-        assert!(board.is_attacked(sq("e2"), Colour::Black), "the bishop's square is attacked down the file");
-        assert_eq!(board.apply(Move::simple(sq("e2"), sq("d3"))), Err(MoveError::LeavesKingInCheck), "off the file");
-        assert_eq!(board.apply(Move::simple(sq("a2"), sq("a3"))), Ok(()), "another piece may still move");
+        assert!(
+            board.is_attacked(sq("e2"), Colour::Black),
+            "the bishop's square is attacked down the file"
+        );
+        assert_eq!(
+            board.apply(Move::simple(sq("e2"), sq("d3"))),
+            Err(MoveError::LeavesKingInCheck),
+            "off the file"
+        );
+        assert_eq!(
+            board.apply(Move::simple(sq("a2"), sq("a3"))),
+            Ok(()),
+            "another piece may still move"
+        );
     }
 
     #[test]
@@ -622,10 +802,20 @@ mod tests {
         board.place(sq("e5"), piece(Kind::Pawn, Colour::White));
         board.place(sq("d7"), piece(Kind::Pawn, Colour::Black));
         board.turn = Colour::Black;
-        assert!(board.apply(Move::simple(sq("d7"), sq("d5"))).is_ok(), "black pushes two squares beside the pawn");
+        assert!(
+            board.apply(Move::simple(sq("d7"), sq("d5"))).is_ok(),
+            "black pushes two squares beside the pawn"
+        );
         assert_eq!(board.en_passant(), Some(sq("d6")));
-        assert!(board.apply(Move::simple(sq("e5"), sq("d6"))).is_ok(), "white takes on the way past");
-        assert_eq!(board.piece_at(sq("d5")), None, "the captured pawn is gone from the board");
+        assert!(
+            board.apply(Move::simple(sq("e5"), sq("d6"))).is_ok(),
+            "white takes on the way past"
+        );
+        assert_eq!(
+            board.piece_at(sq("d5")),
+            None,
+            "the captured pawn is gone from the board"
+        );
         assert_eq!(board.piece_at(sq("d6")).map(|p| p.kind), Some(Kind::Pawn));
         assert_eq!(board.en_passant(), None, "and the right is spent");
     }
@@ -641,23 +831,60 @@ mod tests {
         board.turn = Colour::Black; // white declines, black returns
         board.apply(Move::simple(sq("a7"), sq("a6"))).unwrap();
         board.turn = Colour::White;
-        assert_eq!(board.en_passant(), None, "the right lapsed with the move that declined it");
-        assert_eq!(board.apply(Move::simple(sq("e5"), sq("d6"))), Err(MoveError::BadGeometry));
+        assert_eq!(
+            board.en_passant(),
+            None,
+            "the right lapsed with the move that declined it"
+        );
+        assert_eq!(
+            board.apply(Move::simple(sq("e5"), sq("d6"))),
+            Err(MoveError::BadGeometry)
+        );
     }
 
     #[test]
     fn a_pawn_reaching_the_end_must_say_what_it_became() {
         let mut board = bare([("a1", Colour::White), ("h8", Colour::Black)]);
         board.place(sq("a7"), piece(Kind::Pawn, Colour::White));
-        assert_eq!(board.apply(Move::simple(sq("a7"), sq("a8"))), Err(MoveError::NeedsPromotion));
-        assert_eq!(board.apply(Move { from: sq("a7"), to: sq("a8"), promotion: Some(Kind::King) }), Err(MoveError::BadPromotion), "not to a king");
-        let queen = Move { from: sq("a7"), to: sq("a8"), promotion: Some(Kind::Queen) };
+        assert_eq!(
+            board.apply(Move::simple(sq("a7"), sq("a8"))),
+            Err(MoveError::NeedsPromotion)
+        );
+        assert_eq!(
+            board.apply(Move {
+                from: sq("a7"),
+                to: sq("a8"),
+                promotion: Some(Kind::King)
+            }),
+            Err(MoveError::BadPromotion),
+            "not to a king"
+        );
+        let queen = Move {
+            from: sq("a7"),
+            to: sq("a8"),
+            promotion: Some(Kind::Queen),
+        };
         assert!(board.apply(queen).is_ok());
         assert_eq!(board.piece_at(sq("a8")).map(|p| p.kind), Some(Kind::Queen));
-        assert_eq!(board.apply(Move { from: sq("a8"), to: sq("a7"), promotion: Some(Kind::Queen) }), Err(MoveError::WrongColour));
+        assert_eq!(
+            board.apply(Move {
+                from: sq("a8"),
+                to: sq("a7"),
+                promotion: Some(Kind::Queen)
+            }),
+            Err(MoveError::WrongColour)
+        );
         let mut board = bare([("a1", Colour::White), ("h8", Colour::Black)]);
         board.place(sq("a3"), piece(Kind::Pawn, Colour::White));
-        assert_eq!(board.apply(Move { from: sq("a3"), to: sq("a4"), promotion: Some(Kind::Queen) }), Err(MoveError::BadPromotion), "a promotion where none is due");
+        assert_eq!(
+            board.apply(Move {
+                from: sq("a3"),
+                to: sq("a4"),
+                promotion: Some(Kind::Queen)
+            }),
+            Err(MoveError::BadPromotion),
+            "a promotion where none is due"
+        );
     }
 
     #[test]
@@ -665,25 +892,48 @@ mod tests {
         let mut board = Board::start();
         board.squares[sq("f1") as usize] = None;
         board.squares[sq("g1") as usize] = None;
-        assert!(board.apply(Move::simple(sq("e1"), sq("g1"))).is_ok(), "white castles out");
+        assert!(
+            board.apply(Move::simple(sq("e1"), sq("g1"))).is_ok(),
+            "white castles out"
+        );
         assert_eq!(board.piece_at(sq("g1")).map(|p| p.kind), Some(Kind::King));
-        assert_eq!(board.piece_at(sq("f1")).map(|p| p.kind), Some(Kind::Rook), "the rook came over");
-        assert_eq!(board.castling() & (CASTLE_WHITE_KING | CASTLE_WHITE_QUEEN), 0, "the right is spent");
+        assert_eq!(
+            board.piece_at(sq("f1")).map(|p| p.kind),
+            Some(Kind::Rook),
+            "the rook came over"
+        );
+        assert_eq!(
+            board.castling() & (CASTLE_WHITE_KING | CASTLE_WHITE_QUEEN),
+            0,
+            "the right is spent"
+        );
 
         let mut board = Board::start();
         board.squares[sq("g1") as usize] = Some(piece(Kind::Bishop, Colour::White));
-        assert_eq!(board.apply(Move::simple(sq("e1"), sq("g1"))), Err(MoveError::Occupied), "the destination is taken");
+        assert_eq!(
+            board.apply(Move::simple(sq("e1"), sq("g1"))),
+            Err(MoveError::Occupied),
+            "the destination is taken"
+        );
 
         let mut board = Board::start();
         board.squares[sq("f1") as usize] = Some(piece(Kind::Queen, Colour::White));
         board.squares[sq("g1") as usize] = None;
-        assert_eq!(board.apply(Move::simple(sq("e1"), sq("g1"))), Err(MoveError::NoCastle), "the way over is blocked");
+        assert_eq!(
+            board.apply(Move::simple(sq("e1"), sq("g1"))),
+            Err(MoveError::NoCastle),
+            "the way over is blocked"
+        );
 
         let mut board = Board::start();
         board.squares[sq("f1") as usize] = None;
         board.squares[sq("g1") as usize] = None;
         board.castling = CASTLE_BLACK_KING;
-        assert_eq!(board.apply(Move::simple(sq("e1"), sq("g1"))), Err(MoveError::NoCastle), "the right was spent");
+        assert_eq!(
+            board.apply(Move::simple(sq("e1"), sq("g1"))),
+            Err(MoveError::NoCastle),
+            "the right was spent"
+        );
 
         let mut board = Board::start();
         board.squares[sq("f1") as usize] = None;
@@ -692,7 +942,10 @@ mod tests {
         board.squares[sq("c1") as usize] = None;
         board.squares[sq("d1") as usize] = None;
         board.castling = CASTLE_WHITE_QUEEN;
-        assert!(board.apply(Move::simple(sq("e1"), sq("c1"))).is_ok(), "and queen-side");
+        assert!(
+            board.apply(Move::simple(sq("e1"), sq("c1"))).is_ok(),
+            "and queen-side"
+        );
         assert_eq!(board.piece_at(sq("d1")).map(|p| p.kind), Some(Kind::Rook));
     }
 
@@ -704,8 +957,15 @@ mod tests {
         board.place(sq("f1"), piece(Kind::Queen, Colour::White)); // looking down the f-file at f8
         board.castling = CASTLE_BLACK_KING | CASTLE_BLACK_QUEEN;
         board.turn = Colour::Black;
-        assert_eq!(board.apply(Move::simple(sq("e8"), sq("g8"))), Err(MoveError::CastleIntoCheck), "through the queen's file");
-        assert!(board.apply(Move::simple(sq("e8"), sq("c8"))).is_ok(), "the other side is clear");
+        assert_eq!(
+            board.apply(Move::simple(sq("e8"), sq("g8"))),
+            Err(MoveError::CastleIntoCheck),
+            "through the queen's file"
+        );
+        assert!(
+            board.apply(Move::simple(sq("e8"), sq("c8"))).is_ok(),
+            "the other side is clear"
+        );
     }
 
     #[test]
@@ -731,8 +991,20 @@ mod tests {
         // An en-passant square is the position only when a pawn is standing to use it.
         let mut capturable = Board::empty();
         capturable.turn = Colour::White;
-        capturable.place(sq("d5"), Piece { colour: Colour::Black, kind: Kind::Pawn });
-        capturable.place(sq("e5"), Piece { colour: Colour::White, kind: Kind::Pawn });
+        capturable.place(
+            sq("d5"),
+            Piece {
+                colour: Colour::Black,
+                kind: Kind::Pawn,
+            },
+        );
+        capturable.place(
+            sq("e5"),
+            Piece {
+                colour: Colour::White,
+                kind: Kind::Pawn,
+            },
+        );
         capturable.ep_field = Some(sq("d6"));
         let mut unused = capturable;
         unused.squares[36] = None;
@@ -757,4 +1029,3 @@ mod tests {
         assert_ne!(one.key(), Board::start().key());
     }
 }
-

@@ -8,7 +8,7 @@
 
 use crate::board::{
     Board, CASTLE_BLACK_KING, CASTLE_BLACK_QUEEN, CASTLE_WHITE_KING, CASTLE_WHITE_QUEEN, Colour,
-    Kind, Piece, Square, file_of, rank_of,
+    Kind, Piece, Square, square_name,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -33,12 +33,19 @@ pub enum FenError {
 impl std::fmt::Display for FenError {
     fn fmt(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            FenError::TooFewFields => write!(out, "a FEN needs placement, colour, castling and en passant"),
+            FenError::TooFewFields => write!(
+                out,
+                "a FEN needs placement, colour, castling and en passant"
+            ),
             FenError::TooManyFields => write!(out, "a FEN has six fields at most"),
-            FenError::Placement => write!(out, "piece placement is eight ranks of at most eight files"),
+            FenError::Placement => {
+                write!(out, "piece placement is eight ranks of at most eight files")
+            }
             FenError::ActiveColour => write!(out, "active colour is `w` or `b`"),
             FenError::Castling => write!(out, "castling is `-` or a subset of `KQkq`"),
-            FenError::EnPassant => write!(out, "en passant is `-` or a square on the capturable rank"),
+            FenError::EnPassant => {
+                write!(out, "en passant is `-` or a square on the capturable rank")
+            }
             FenError::Clock => write!(out, "clock fields are numbers within reach of the rules"),
         }
     }
@@ -74,7 +81,14 @@ pub fn parse(text: &str) -> Result<Board, FenError> {
         _ => return Err(FenError::ActiveColour),
     };
     let rights = rights_of(castling)?;
-    Ok(Board::from_parts(squares, turn, rights, ep_of(ep, turn)?, halfmove, fullmove))
+    Ok(Board::from_parts(
+        squares,
+        turn,
+        rights,
+        ep_of(ep, turn)?,
+        halfmove,
+        fullmove,
+    ))
 }
 
 /// Write a position: the six fields, in the order a FEN has them.
@@ -101,7 +115,11 @@ pub fn format(board: &Board) -> String {
             text.push('/');
         }
     }
-    text.push_str(if board.turn() == Colour::White { " w " } else { " b " });
+    text.push_str(if board.turn() == Colour::White {
+        " w "
+    } else {
+        " b "
+    });
     let mut rights = String::new();
     for (right, letter) in [
         (CASTLE_WHITE_KING, 'K'),
@@ -135,7 +153,11 @@ fn placement_of(placement: &str) -> Result<[Option<Piece>; 64], FenError> {
             if let '1'..='8' = letter {
                 file += letter as u8 - b'0';
             } else {
-                let colour = if letter.is_uppercase() { Colour::White } else { Colour::Black };
+                let colour = if letter.is_uppercase() {
+                    Colour::White
+                } else {
+                    Colour::Black
+                };
                 let kind = kind_of(letter.to_ascii_lowercase()).ok_or(FenError::Placement)?;
                 squares[usize::from(rank * 8 + file)] = Some(Piece { colour, kind });
                 file += 1;
@@ -234,14 +256,11 @@ fn char_of(piece: Piece) -> char {
         Kind::Queen => 'q',
         Kind::King => 'k',
     };
-    if piece.colour == Colour::White { letter.to_ascii_uppercase() } else { letter }
-}
-
-fn square_name(at: Square) -> String {
-    let mut name = String::with_capacity(2);
-    name.push(char::from(b'a' + file_of(at)));
-    name.push(char::from(b'1' + rank_of(at)));
-    name
+    if piece.colour == Colour::White {
+        letter.to_ascii_uppercase()
+    } else {
+        letter
+    }
 }
 
 #[cfg(test)]
@@ -304,14 +323,26 @@ mod tests {
         let written = "4k3/8/8/3p4/8/8/8/4K3 w - d6 0 1";
         let board = parse(written).unwrap();
         assert_eq!(board.ep_field(), Some(sq("d6")), "the string survives");
-        assert_eq!(board.en_passant(), None, "no pawn stands where it could take");
+        assert_eq!(
+            board.en_passant(),
+            None,
+            "no pawn stands where it could take"
+        );
         assert_eq!(format(&board), written, "byte for byte");
         // A pawn on e5 makes it a position, not just a note about the last move.
         let with = parse("4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 1").unwrap();
         assert_eq!(with.en_passant(), Some(sq("d6")));
-        assert_ne!(with.key(), board.key(), "a capturable square is part of the position");
+        assert_ne!(
+            with.key(),
+            board.key(),
+            "a capturable square is part of the position"
+        );
         let uncapturable = parse("4k3/8/8/3p4/8/8/8/4K3 w - - 0 1").unwrap();
-        assert_eq!(uncapturable.key(), board.key(), "one nobody can take is not part of it");
+        assert_eq!(
+            uncapturable.key(),
+            board.key(),
+            "one nobody can take is not part of it"
+        );
     }
 
     #[test]
@@ -326,18 +357,54 @@ mod tests {
         use FenError::*;
         for (text, expected) in [
             ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP", TooFewFields),
-            ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w", TooFewFields),
-            ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 extra", TooManyFields),
-            ("rnbqkbnr/ppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", Placement),
-            ("rnbqkbnr/ppppppppp/8/8/8/8/PPPPPPPP w KQkq - 0 1", Placement),
-            ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBXR w KQkq - 0 1", Placement),
-            ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR x KQkq - 0 1", ActiveColour),
-            ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KKkq - 0 1", Castling),
-            ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq e5 0 1", EnPassant),
-            ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq i6 0 1", EnPassant),
-            ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - x 1", Clock),
-            ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 101 1", Clock),
-            ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 0", Clock),
+            (
+                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w",
+                TooFewFields,
+            ),
+            (
+                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 extra",
+                TooManyFields,
+            ),
+            (
+                "rnbqkbnr/ppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+                Placement,
+            ),
+            (
+                "rnbqkbnr/ppppppppp/8/8/8/8/PPPPPPPP w KQkq - 0 1",
+                Placement,
+            ),
+            (
+                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBXR w KQkq - 0 1",
+                Placement,
+            ),
+            (
+                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR x KQkq - 0 1",
+                ActiveColour,
+            ),
+            (
+                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KKkq - 0 1",
+                Castling,
+            ),
+            (
+                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq e5 0 1",
+                EnPassant,
+            ),
+            (
+                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq i6 0 1",
+                EnPassant,
+            ),
+            (
+                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - x 1",
+                Clock,
+            ),
+            (
+                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 101 1",
+                Clock,
+            ),
+            (
+                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 0",
+                Clock,
+            ),
         ] {
             assert_eq!(parse(text).unwrap_err(), expected, "{text}");
         }
