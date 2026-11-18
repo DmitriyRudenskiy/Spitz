@@ -15,12 +15,20 @@ use chess_core::board::{Kind, Move, Square};
 
 pub const ENTRY_BYTES: usize = 16;
 
-#[derive(Debug, thiserror::Error)]
+/// A book that is not a whole number of records is corrupt, and saying so is the whole error.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FormatError {
-    /// A record was cut off at the end of the file.
-    #[error("book length {bytes} is not a whole number of {ENTRY_BYTES}-byte records ({trailing} bytes over)")]
     Trailing { bytes: usize, trailing: usize },
 }
+
+impl std::fmt::Display for FormatError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let FormatError::Trailing { bytes, trailing } = self;
+        write!(f, "book length {bytes} is not a whole number of {ENTRY_BYTES}-byte records, {trailing} over")
+    }
+}
+
+impl std::error::Error for FormatError {}
 
 /// One record, exactly as the format holds it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -49,29 +57,26 @@ impl Entry {
 }
 
 /// The two-byte move: six bits of from-square, six of to-square, and two saying what a pawn became.
-/// The promotion field counts knight, bishop, rook, and promotion to a queen is not in the format —
-/// which is a limitation of the format, not of the store, so it is refused rather than rounded.
+/// The promotion field counts knight, bishop and rook; promotion to a queen shares the code with "no
+/// promotion", and is told apart by the pawn landing on the last rank. That is the format's own
+/// convention, read in `crate::book::import` where the position is known.
 pub fn encode_move(mv: Move) -> u16 {
     let promotion = match mv.promotion {
-        None | Some(Kind::Queen) => 0,
         Some(Kind::Knight) => 1,
         Some(Kind::Bishop) => 2,
         Some(Kind::Rook) => 3,
-        Some(Kind::King) => 0,
+        // Promotion to a queen is the one thing the format cannot say; see `decode_move`.
+        _ => 0,
     };
     (promotion << 12) | ((mv.from as u16) << 6) | mv.to as u16
 }
 
 pub fn decode_move(packed: u16) -> Move {
     let promotion = match packed >> 12 {
-        0 => None,
         1 => Some(Kind::Knight),
         2 => Some(Kind::Bishop),
         3 => Some(Kind::Rook),
-        // A promotion field of zero means "no promotion" in every book in the wild, so a book that
-        // did hold a queen promotion would come back as a plain move; the importer's replay catches
-        // it as an illegal move rather than letting it through quietly.
-        _ => None,
+        _ => None, // none, or a queen — see the note above
     };
     Move { from: ((packed >> 6) & 0x3f) as Square, to: (packed & 0x3f) as Square, promotion }
 }
@@ -173,14 +178,15 @@ mod tests {
 
     #[test]
     fn a_file_cut_mid_record_is_reported_not_guessed() {
-        let bytes = record(1, 0, 0, 0, 0, 0);
+        let one = record(1, 0, 0, 0, 0, 0);
         for len in [1, 8, 15, 17, 31] {
-            assert!(matches!(read(&bytes[..len]), Err(FormatError::Trailing { .. })), "{len} bytes"), ;
+            assert!(
+                matches!(read(&one[..len.min(16)]), Err(FormatError::Trailing { .. })),
+                "{len} bytes is not a whole number of records"
+            );
         }
-        assert!(matches!(read(&bytes[..len(16)]), Err(FormatError::Trailing { .. })), "and not a whole record");
-        fn len(n: usize) -> usize {
-            n - 1
-        }
+        assert!(read(&one).is_ok(), "sixteen bytes is one record");
+        assert!(read(&[one, record(2, 0, 0, 0, 0, 0)].concat()).is_ok(), "and two");
     }
 
     #[test]

@@ -1,6 +1,8 @@
 //! Game library storage: header records, the interned name dictionary, filters, sessions,
 //! ECO classification, cross-tables, and opening-book interchange. No UI, no engine.
 
+pub mod book;
+pub mod book_binary;
 pub mod collation;
 pub mod crosstab;
 pub mod crosstab_render;

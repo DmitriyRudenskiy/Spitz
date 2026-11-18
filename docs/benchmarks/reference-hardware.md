@@ -1,5 +1,9 @@
 # Reference hardware
 
+Selected machine (ADR-0008, round 5): the desktop with the GTX 1660 card (serial GTX1660-01),
+running Linux. Specs below are filled from one `lscpu`-class capture on that host; until they are,
+budget tests are unrunnable and that is reported, not assumed.
+
 The single machine named by [ADR-0008](../../docs/adr/0008-reference-hardware-one-named-machine.md).
 Every "on the reference hardware" in the specs means this machine. Fill it in before the first
 budget run; when the machine changes, this file and every budget number change in the same change.
