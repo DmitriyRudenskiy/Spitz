@@ -60,6 +60,11 @@ impl Date {
         }
     }
 
+    /// True when nothing at all is known.
+    pub const fn is_unknown(&self) -> bool {
+        self.year == 0
+    }
+
     /// True when at least one component is unknown.
     pub const fn is_partial(&self) -> bool {
         self.year == 0 || self.month == 0 || self.day == 0
