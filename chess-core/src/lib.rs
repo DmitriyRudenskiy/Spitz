@@ -2,6 +2,8 @@
 
 pub mod board;
 pub mod date;
+pub mod fen;
+pub mod move_gen;
 pub mod key_table;
 pub mod matsig;
 pub mod pgn;

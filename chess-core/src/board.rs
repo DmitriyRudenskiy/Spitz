@@ -116,6 +116,13 @@ pub struct Board {
     /// The square a pawn could capture into on the way past, present only when that capture is
     /// actually possible — which is also what the position key counts.
     ep: Option<Square>,
+    /// Halfmoves since the last pawn move or capture, the 50-move rule's counter.
+    halfmove: u16,
+    /// The move number a FEN's last field carries.
+    fullmove: u16,
+    /// Where each king stands, so that "does this move leave the king exposed?" costs one probe
+    /// instead of a scan of the board. Kept by the two places that move a piece.
+    kings: [Option<Square>; 2],
 }
 
 const KNIGHT_STEPS: [(i8, i8); 8] =
@@ -138,11 +145,46 @@ impl Board {
     }
 
     pub const fn empty() -> Board {
-        Board { squares: [None; 64], turn: Colour::White, castling: 0, ep: None }
+        Board {
+            squares: [None; 64],
+            turn: Colour::White,
+            castling: 0,
+            ep: None,
+            halfmove: 0,
+            fullmove: 1,
+            kings: [None; 2],
+        }
     }
 
-    const fn place(&mut self, at: Square, piece: Piece) {
+    /// A whole position at once, for the codec that reads one.
+    pub(crate) fn from_parts(
+        squares: [Option<Piece>; 64],
+        turn: Colour,
+        castling: u8,
+        ep: Option<Square>,
+        halfmove: u16,
+        fullmove: u16,
+    ) -> Board {
+        let mut kings = [None; 2];
+        for (at, slot) in squares.iter().enumerate() {
+            if let Some(piece) = slot
+                && piece.kind == Kind::King
+            {
+                kings[piece.colour as usize] = Some(at as Square);
+            }
+        }
+        Board { squares, turn, castling, ep, halfmove, fullmove, kings }
+    }
+
+    pub(crate) const fn set_en_passant(&mut self, at: Option<Square>) {
+        self.ep = at;
+    }
+
+    fn place(&mut self, at: Square, piece: Piece) {
         self.squares[at as usize] = Some(piece);
+        if piece.kind == Kind::King {
+            self.kings[piece.colour as usize] = Some(at);
+        }
     }
 
     pub const fn turn(&self) -> Colour {
@@ -159,6 +201,14 @@ impl Board {
 
     pub const fn en_passant(&self) -> Option<Square> {
         self.ep
+    }
+
+    pub const fn halfmove(&self) -> u16 {
+        self.halfmove
+    }
+
+    pub const fn fullmove(&self) -> u16 {
+        self.fullmove
     }
 
     /// The 8-byte key the interchange format indexes by. Computed from the position rather than
@@ -185,10 +235,7 @@ impl Board {
     }
 
     pub fn king_square(&self, of: Colour) -> Option<Square> {
-        self.squares
-            .iter()
-            .position(|slot| slot.is_some_and(|p| p.kind == Kind::King && p.colour == of))
-            .map(|at| at as Square)
+        self.kings[of as usize]
     }
 
     /// Is `at` attacked by any piece of `by`?
@@ -268,6 +315,7 @@ impl Board {
         if mover.kind == Kind::King && (mv.to as i8 - mv.from as i8).abs() == 2 {
             let mut next = *self;
             next.apply_castle(mv, mover)?;
+            next.advance_clocks(mover, false);
             *self = next;
             return Ok(());
         }
@@ -291,11 +339,15 @@ impl Board {
 
         let mut next = *self;
         let captured = self.squares[mv.to as usize];
+        next.advance_clocks(mover, captured.is_some());
         next.squares[mv.from as usize] = None;
         next.squares[mv.to as usize] = Some(match mv.promotion {
             Some(kind) => Piece { colour: mover.colour, kind },
             None => mover,
         });
+        if mover.kind == Kind::King {
+            next.kings[mover.colour as usize] = Some(mv.to);
+        }
         // An en-passant capture leaves the captured pawn where it was.
         if mover.kind == Kind::Pawn && captured.is_none() && self.ep == Some(mv.to) {
             let behind = (mv.to as i8 + if mover.colour == Colour::White { -8 } else { 8 }) as usize;
@@ -360,11 +412,13 @@ impl Board {
 
     fn apply_castle(&mut self, mv: Move, mover: Piece) -> Result<(), MoveError> {
         let king_side = mv.to > mv.from;
+        // `safe` is every square the king stands on or crosses: castling out of check is not a
+        // castle, and the square the king leaves is the one a check arrives at.
         let (right, king_from, rook_from, empty, safe) = match (mover.colour, king_side) {
-            (Colour::White, true) => (CASTLE_WHITE_KING, 4u8, 7u8, &[5u8, 6][..], &[5u8, 6][..]),
-            (Colour::White, false) => (CASTLE_WHITE_QUEEN, 4, 0, &[1, 2, 3][..], &[2, 3][..]),
-            (Colour::Black, true) => (CASTLE_BLACK_KING, 60, 63, &[61, 62][..], &[61, 62][..]),
-            (Colour::Black, false) => (CASTLE_BLACK_QUEEN, 60, 56, &[57, 58, 59][..], &[58, 59][..]),
+            (Colour::White, true) => (CASTLE_WHITE_KING, 4u8, 7u8, &[5u8, 6][..], &[4u8, 5, 6][..]),
+            (Colour::White, false) => (CASTLE_WHITE_QUEEN, 4, 0, &[1, 2, 3][..], &[4u8, 2, 3][..]),
+            (Colour::Black, true) => (CASTLE_BLACK_KING, 60, 63, &[61, 62][..], &[60u8, 61, 62][..]),
+            (Colour::Black, false) => (CASTLE_BLACK_QUEEN, 60, 56, &[57, 58, 59][..], &[60u8, 58, 59][..]),
         };
         if mv.from != king_from || mv.to as i8 != king_from as i8 + if king_side { 2 } else { -2 } {
             return Err(MoveError::NoCastle);
@@ -388,10 +442,24 @@ impl Board {
         self.squares[rook_from as usize] = None;
         self.squares[mv.to as usize] = Some(mover);
         self.squares[rook_to as usize] = Some(rook);
+        self.kings[mover.colour as usize] = Some(mv.to);
         self.turn = enemy;
         self.ep = None;
         self.update_castling(mv);
         Ok(())
+    }
+
+    /// The two clocks a FEN carries: the halfmove clock resets on a pawn move or a capture, and
+    /// the move number once black has moved.
+    fn advance_clocks(&mut self, mover: Piece, captured: bool) {
+        self.halfmove = if mover.kind == Kind::Pawn || captured {
+            0
+        } else {
+            self.halfmove.saturating_add(1)
+        };
+        if mover.colour == Colour::Black {
+            self.fullmove = self.fullmove.saturating_add(1);
+        }
     }
 
     fn update_castling(&mut self, mv: Move) {
@@ -458,6 +526,18 @@ mod tests {
 
     fn piece(kind: Kind, colour: Colour) -> Piece {
         Piece { colour, kind }
+    }
+
+    #[test]
+    fn castling_out_of_check_is_refused() {
+        let mut board = Board::empty();
+        board.place(sq("e1"), piece(Kind::King, Colour::White));
+        board.place(sq("h1"), piece(Kind::Rook, Colour::White));
+        board.place(sq("a8"), piece(Kind::King, Colour::Black));
+        board.place(sq("b4"), piece(Kind::Bishop, Colour::Black));
+        board.castling = CASTLE_WHITE_KING;
+        assert!(board.is_attacked(sq("e1"), Colour::Black), "the king is in check");
+        assert_eq!(board.apply(Move::simple(sq("e1"), sq("g1"))), Err(MoveError::CastleIntoCheck));
     }
 
     /// A board with only the two kings, ready for a position a start position cannot hold.

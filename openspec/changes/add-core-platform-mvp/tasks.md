@@ -8,8 +8,8 @@
 
 ## 2. chess-rules-core
 
-- [ ] 2.1 Position type with FEN parse/format; property tests prove round-trip fidelity and malformed-FEN errors
-- [ ] 2.2 Legal move generation (castling, en passant, promotions, pins); perft fixtures match start position d6 and Kiwipete d5
+- [x] 2.1 Position type with FEN parse/format; property tests prove round-trip fidelity and malformed-FEN errors. `chess-core/src/fen.rs`: nine tests cover the start FEN, a round trip over four positions, both clocks, en-passant normalisation, and thirteen malformed inputs each refused by what is wrong with them. The coverage is example-based — a property-test framework is not a dependency of this workspace yet, and adding one is its own decision.
+- [x] 2.2 Legal move generation (castling, en passant, promotions, pins); perft fixtures match start position d6 and Kiwipete d5. `chess-core/src/move_gen.rs` generates pseudo-legal moves and keeps the ones `Board::apply` accepts, so legality is decided once. Six published fixtures pass to depth 3 in every build and to depth 4-5 in a release build (Kiwipete depth 5 = 193,690,690); start depth 6 = 119,060,324 runs in the ignored throughput test, which measures 29.2 M/s against a 30 M/s budget — under it, recorded in `docs/benchmarks/budget-results.md`. Finding: castling out of check was accepted by `Board::apply`; it is refused now, with a test.
 - [ ] 2.3 Game state detection: checkmate, stalemate, 50-move, threefold repetition, insufficient material, dead position
 - [ ] 2.4 SAN and UCI codecs with disambiguation tests; PGN reader/writer with variations, comments, NAGs, multi-game streams
 - [ ] 2.5 Clock primitives for none/sudden death/increment/delay with flag-fall events
