@@ -27,6 +27,13 @@ design questions, and the rules decide most review comments.
 options, resources) → `specs/opening-book` (local books) → `specs/game-management` (documents,
 PGN, the store)
 
+**Work like a power user**
+`changes/add-power-user-features/specs/game-commentary` (graphics, symbols, spoken commentary,
+publication exports) → `specs/game-management` (tags, indexes, backup cycle) →
+`changes/add-power-user-features/specs/engine-benchmarking` (hardware report, test position sets,
+position-set matches) → `specs/move-selection` and `specs/style-engine` (how the app picks from
+engine lines)
+
 **Know the limits before proposing anything**
 `backlog/descoped.md` — what used to be in scope, why it left, and what it would take to return.
 
@@ -38,12 +45,16 @@ PGN, the store)
 | Engine hosting | `uci-host` | `engine-protocol` |
 | Move choice on top of engine output | `move-select` | `move-selection`, `style-engine`, `play-vs-computer` |
 | Storage | `game-db` | `game-management`, `opening-book` |
+| Document richness | `game-db`, `desktop` | `game-commentary` (proposed in `changes/add-power-user-features`) |
 | Shell and rendering | `desktop` | `app-shell`, `board-ui`, `analysis-workbench`, trainers |
+| Measurement | `uci-host`, `chess-core`, `desktop` | `engine-benchmarking` (proposed in the same change) |
 
 Two rules fall out of that table and cause most design arguments. The engine is a foreign process:
 behaviour we want is either a UCI option the engine declares or something the selection layer does
-itself, so every strength claim is calibrated per engine. The network does not exist: features that
-would have fetched data say what they do with the local file instead.
+itself, so every strength claim is calibrated per engine, and any sentence the app writes about a
+position comes from rules-core facts plus engine lines rather than from the engine's prose. The
+network does not exist: features that would have fetched data say what they do with the local file
+instead.
 
 ## Backlog
 

@@ -53,17 +53,17 @@ stored as audio, offline indication) are worth keeping when it does.
 | `book-authoring` (delta) | On-demand online book query | Remote book service. Local authoring, weeding, per-side books and book learning stayed. |
 | `book-authoring` (delta) | Engine learning (was its own capability) | Adjusting a third-party engine's evaluation is not possible from outside, and doing it in the selection layer would stop being the engine's play. Book learning — the part that was always ours — moved into `book-authoring`. |
 | `deep-analysis-toolkit` (delta) | Selected-moves analysis "restricted engine search, faster than full" | UCI has no root-move restriction. Now one search per selected move from the position after that move, with cost stated up front, plus an optional engine-declared fast path. |
-| `deep-analysis-toolkit` (delta) | CBF batch input | Proprietary container format. EPD and PGN cover the same workflow. |
+| `deep-analysis-toolkit` (delta) | Batch input in a vendor's proprietary game container format | Closed container owned by another vendor. EPD and PGN cover the same workflow. |
 
 ## Changed identity
 
 - Product name: the working name used by the source spec set is replaced by **Spitz** throughout.
-- Change `add-shredder-parity-features` is now `add-analysis-power-tools` — the old name was a
+- One analysis-focused change was renamed to `add-analysis-power-tools`; its former name was a
   third-party product name, and the specs themselves already used trademark-neutral terms
   (arbiter module, fast tablebase format, histogram, shootout).
 - Milestone numbering: M1 core platform (`add-core-platform-mvp`), M2 analysis and training
-  (`add-analysis-and-training`), M3 analysis power tools (`add-analysis-power-tools`), then the
-  shell refinement change (`add-ui-enhancements`), which takes no milestone number. The retired
-  online/cloud/voice milestone is not numbered.
+  (`add-analysis-and-training`), M3 analysis power tools (`add-analysis-power-tools`), M4 power-user
+  surface (`add-power-user-features`), plus the shell refinement change (`add-ui-enhancements`),
+  which takes no milestone number. The retired online/cloud/voice milestone is not numbered.
 - `chess-engine` is no longer part of M1, which is why M1 is now four crates plus the shell
   instead of a fifth engine crate.
