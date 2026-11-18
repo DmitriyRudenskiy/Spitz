@@ -113,9 +113,10 @@ pub struct Board {
     squares: [Option<Piece>; 64],
     turn: Colour,
     castling: u8,
-    /// The square a pawn could capture into on the way past, present only when that capture is
-    /// actually possible — which is also what the position key counts.
-    ep: Option<Square>,
+    /// The square a double push just skipped over, as notation writes it. Whether it is a target
+    /// at all is [`Board::en_passant`], which asks whether a pawn stands where it could take — and
+    /// that narrower answer is what the position key counts.
+    ep_field: Option<Square>,
     /// Halfmoves since the last pawn move or capture, the 50-move rule's counter.
     halfmove: u16,
     /// The move number a FEN's last field carries.
@@ -149,7 +150,7 @@ impl Board {
             squares: [None; 64],
             turn: Colour::White,
             castling: 0,
-            ep: None,
+            ep_field: None,
             halfmove: 0,
             fullmove: 1,
             kings: [None; 2],
@@ -173,11 +174,7 @@ impl Board {
                 kings[piece.colour as usize] = Some(at as Square);
             }
         }
-        Board { squares, turn, castling, ep, halfmove, fullmove, kings }
-    }
-
-    pub(crate) const fn set_en_passant(&mut self, at: Option<Square>) {
-        self.ep = at;
+        Board { squares, turn, castling, ep_field: ep, halfmove, fullmove, kings }
     }
 
     fn place(&mut self, at: Square, piece: Piece) {
@@ -199,8 +196,31 @@ impl Board {
         self.castling
     }
 
-    pub const fn en_passant(&self) -> Option<Square> {
-        self.ep
+    pub fn en_passant(&self) -> Option<Square> {
+        let at = self.ep_field?;
+        let mover = self.turn;
+        let white = mover == Colour::White;
+        if rank_of(at) != if white { 5 } else { 2 } {
+            return None;
+        }
+        let pawn = |slot: Square| {
+            self.piece_at(slot).is_some_and(|p| p.colour == mover && p.kind == Kind::Pawn)
+        };
+        // The pawn that takes stands beside the square jumped, one rank back from it.
+        let behind = if white { at - 8 } else { at + 8 };
+        if file_of(at) > 0 && pawn(behind - 1) {
+            return Some(at);
+        }
+        if file_of(at) < 7 && pawn(behind + 1) {
+            return Some(at);
+        }
+        None
+    }
+
+    /// The en-passant square as a FEN would write it, which is a square whether or not anyone can
+    /// capture on it. The position does not depend on it; the string does.
+    pub const fn ep_field(&self) -> Option<Square> {
+        self.ep_field
     }
 
     pub const fn halfmove(&self) -> u16 {
@@ -225,7 +245,7 @@ impl Board {
                 key ^= KEY_TABLE[KEY_CASTLING + bit];
             }
         }
-        if let Some(at) = self.ep {
+        if let Some(at) = self.en_passant() {
             key ^= KEY_TABLE[KEY_EN_PASSANT + file_of(at) as usize];
         }
         if self.turn == Colour::White {
@@ -349,12 +369,16 @@ impl Board {
             next.kings[mover.colour as usize] = Some(mv.to);
         }
         // An en-passant capture leaves the captured pawn where it was.
-        if mover.kind == Kind::Pawn && captured.is_none() && self.ep == Some(mv.to) {
+        if mover.kind == Kind::Pawn
+            && captured.is_none()
+            && file_of(mv.from) != file_of(mv.to)
+            && self.en_passant() == Some(mv.to)
+        {
             let behind = (mv.to as i8 + if mover.colour == Colour::White { -8 } else { 8 }) as usize;
             next.squares[behind] = None;
         }
         next.turn = self.turn.other();
-        next.ep = next.en_passant_after(mv, mover);
+        next.ep_field = skipped_over(mv, mover);
         next.update_castling(mv);
         if next.king_square(mover.colour).is_some_and(|king| next.is_attacked(king, mover.colour.other())) {
             return Err(MoveError::LeavesKingInCheck);
@@ -383,7 +407,7 @@ impl Board {
                     return self.squares[between].is_none();
                 }
                 if adx == 1 && dy == forward {
-                    return captures || self.ep == Some(mv.to);
+                    return captures || self.en_passant() == Some(mv.to);
                 }
                 false
             }
@@ -444,7 +468,7 @@ impl Board {
         self.squares[rook_to as usize] = Some(rook);
         self.kings[mover.colour as usize] = Some(mv.to);
         self.turn = enemy;
-        self.ep = None;
+        self.ep_field = None;
         self.update_castling(mv);
         Ok(())
     }
@@ -481,26 +505,6 @@ impl Board {
         }
     }
 
-    /// The square a pawn that has just pushed two ranks can be captured on, but only when an enemy
-    /// pawn stands where it could take — the same condition the key counts.
-    fn en_passant_after(&self, mv: Move, mover: Piece) -> Option<Square> {
-        if mover.kind != Kind::Pawn {
-            return None;
-        }
-        let forward: i8 = if mover.colour == Colour::White { 1 } else { -1 };
-        if rank_of(mv.from) as i8 != if mover.colour == Colour::White { 1 } else { 6 }
-            || rank_of(mv.to) as i8 - rank_of(mv.from) as i8 != 2 * forward
-        {
-            return None;
-        }
-        let enemy_pawn = Piece { colour: mover.colour.other(), kind: Kind::Pawn };
-        for step in [-1i8, 1] {
-            if self.walk(mv.to, step, 0) == Some(enemy_pawn) {
-                return Some(((mv.from as u16 + mv.to as u16) / 2) as Square);
-            }
-        }
-        None
-    }
 }
 
 fn back_rank(file: u8) -> Kind {
@@ -511,6 +515,18 @@ fn back_rank(file: u8) -> Kind {
         3 => Kind::Queen,
         _ => Kind::King,
     }
+}
+
+/// The square a double pawn push jumped over, which is the square a FEN names on the next line —
+/// whether or not an enemy pawn is standing where it could take.
+fn skipped_over(mv: Move, mover: Piece) -> Option<Square> {
+    if mover.kind != Kind::Pawn {
+        return None;
+    }
+    let two = if mover.colour == Colour::White { 2 } else { -2 };
+    let home = if mover.colour == Colour::White { 1 } else { 6 };
+    (rank_of(mv.from) as i8 == home && rank_of(mv.to) as i8 - rank_of(mv.from) as i8 == two)
+        .then(|| ((mv.from as u16 + mv.to as u16) / 2) as Square)
 }
 
 #[cfg(test)]
@@ -712,9 +728,18 @@ mod tests {
         let mut turn = start;
         turn.turn = Colour::Black;
         assert_ne!(start.key(), turn.key());
-        let mut ep = start;
-        ep.ep = Some(sq("a3"));
-        assert_ne!(start.key(), ep.key());
+        // An en-passant square is the position only when a pawn is standing to use it.
+        let mut capturable = Board::empty();
+        capturable.turn = Colour::White;
+        capturable.place(sq("d5"), Piece { colour: Colour::Black, kind: Kind::Pawn });
+        capturable.place(sq("e5"), Piece { colour: Colour::White, kind: Kind::Pawn });
+        capturable.ep_field = Some(sq("d6"));
+        let mut unused = capturable;
+        unused.squares[36] = None;
+        assert_ne!(capturable.key(), unused.key());
+        let mut notated = unused;
+        notated.ep_field = None;
+        assert_eq!(unused.key(), notated.key());
     }
 
     #[test]
@@ -732,3 +757,4 @@ mod tests {
         assert_ne!(one.key(), Board::start().key());
     }
 }
+

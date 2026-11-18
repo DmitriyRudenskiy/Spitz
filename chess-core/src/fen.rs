@@ -74,9 +74,7 @@ pub fn parse(text: &str) -> Result<Board, FenError> {
         _ => return Err(FenError::ActiveColour),
     };
     let rights = rights_of(castling)?;
-    let mut board = Board::from_parts(squares, turn, rights, None, halfmove, fullmove);
-    board.set_en_passant(ep_of(ep, turn, &squares)?);
-    Ok(board)
+    Ok(Board::from_parts(squares, turn, rights, ep_of(ep, turn)?, halfmove, fullmove))
 }
 
 /// Write a position: the six fields, in the order a FEN has them.
@@ -116,7 +114,7 @@ pub fn format(board: &Board) -> String {
         }
     }
     text.push_str(if rights.is_empty() { "-" } else { &rights });
-    match board.en_passant() {
+    match board.ep_field() {
         None => text.push_str(" -"),
         Some(at) => text.push_str(&format!(" {}", square_name(at))),
     }
@@ -174,9 +172,10 @@ fn rights_of(castling: &str) -> Result<u8, FenError> {
     Ok(rights)
 }
 
-/// The square an en-passant capture would land on, kept only when a pawn of the side to move
-/// stands where it could take.
-fn ep_of(field: &str, turn: Colour, squares: &[Option<Piece>; 64]) -> Result<Option<Square>, FenError> {
+/// The square the field names. A FEN writes the square a double push jumped, whether or not a pawn
+/// stands where it could take, and reading it back has to agree with the string it came from.
+/// Whether it is a target at all is the board's question: [`Board::en_passant`].
+fn ep_of(field: &str, turn: Colour) -> Result<Option<Square>, FenError> {
     if field == "-" {
         return Ok(None);
     }
@@ -193,16 +192,7 @@ fn ep_of(field: &str, turn: Colour, squares: &[Option<Piece>; 64]) -> Result<Opt
     if file > 7 || rank != expected {
         return Err(FenError::EnPassant);
     }
-    let at = rank * 8 + file;
-    let capturer = Piece { colour: turn, kind: Kind::Pawn };
-    // The pawn that captures stands one rank behind the square it lands on, on either side.
-    let behind = if turn == Colour::White { -1i8 } else { 1 };
-    let reachable = [-1i8, 1]
-        .into_iter()
-        .map(|step| file as i8 + step)
-        .filter(|file| (0..8).contains(file))
-        .any(|file| squares[((rank as i8 + behind) * 8 + file) as usize] == Some(capturer));
-    Ok(if reachable { Some(at) } else { None })
+    Ok(Some(rank * 8 + file))
 }
 
 fn clock(field: &str) -> Result<u16, FenError> {
@@ -259,6 +249,11 @@ mod tests {
     use super::*;
     use crate::board::Move;
 
+    fn sq(name: &str) -> Square {
+        let bytes = name.as_bytes();
+        (bytes[1] - b'1') * 8 + (bytes[0] - b'a')
+    }
+
     const START: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
     #[test]
@@ -305,14 +300,18 @@ mod tests {
     }
 
     #[test]
-    fn an_en_passant_square_nobody_can_capture_on_is_not_kept() {
-        let board = parse("4k3/8/8/3p4/8/8/8/4K3 w - d6 0 1").unwrap();
-        assert_eq!(board.en_passant(), None);
-        assert!(format(&board).ends_with("- 0 1"));
-        // The same square with a pawn standing where it could take is a different position.
+    fn an_en_passant_square_nobody_can_capture_on_is_written_but_not_believed() {
+        let written = "4k3/8/8/3p4/8/8/8/4K3 w - d6 0 1";
+        let board = parse(written).unwrap();
+        assert_eq!(board.ep_field(), Some(sq("d6")), "the string survives");
+        assert_eq!(board.en_passant(), None, "no pawn stands where it could take");
+        assert_eq!(format(&board), written, "byte for byte");
+        // A pawn on e5 makes it a position, not just a note about the last move.
         let with = parse("4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 1").unwrap();
-        assert!(with.en_passant().is_some());
-        assert_ne!(with.key(), board.key());
+        assert_eq!(with.en_passant(), Some(sq("d6")));
+        assert_ne!(with.key(), board.key(), "a capturable square is part of the position");
+        let uncapturable = parse("4k3/8/8/3p4/8/8/8/4K3 w - - 0 1").unwrap();
+        assert_eq!(uncapturable.key(), board.key(), "one nobody can take is not part of it");
     }
 
     #[test]

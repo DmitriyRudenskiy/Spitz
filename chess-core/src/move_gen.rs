@@ -67,13 +67,14 @@ pub fn pseudo_moves(board: &Board, out: &mut [Move]) -> usize {
 
 fn each_pseudo(board: &Board, push: &mut impl FnMut(Move)) {
     let mover = board.turn();
+    let ep = board.en_passant();
     for from in 0..64 {
         let Some(piece) = board.piece_at(from) else { continue };
         if piece.colour != mover {
             continue;
         }
         match piece.kind {
-            Kind::Pawn => pawn_moves(board, mover, from, push),
+            Kind::Pawn => pawn_moves(board, mover, from, ep, push),
             Kind::Knight => step_moves(board, mover, from, &KNIGHT_STEPS, push),
             Kind::King => {
                 step_moves(board, mover, from, &KING_STEPS, push);
@@ -89,7 +90,13 @@ fn each_pseudo(board: &Board, push: &mut impl FnMut(Move)) {
     }
 }
 
-fn pawn_moves(board: &Board, mover: Colour, from: Square, push: &mut impl FnMut(Move)) {
+fn pawn_moves(
+    board: &Board,
+    mover: Colour,
+    from: Square,
+    ep: Option<Square>,
+    push: &mut impl FnMut(Move),
+) {
     let forward: i8 = if mover == Colour::White { 1 } else { -1 };
     let home = if mover == Colour::White { 1 } else { 6 };
     let promoting = if mover == Colour::White { 7 } else { 0 };
@@ -112,7 +119,7 @@ fn pawn_moves(board: &Board, mover: Colour, from: Square, push: &mut impl FnMut(
         }
         let Some(to) = square_at(diagonal as u8, rank as i8 + forward) else { continue };
         let takes = board.piece_at(to).is_some_and(|piece| piece.colour != mover);
-        if takes || board.en_passant() == Some(to) {
+        if takes || ep == Some(to) {
             push_pawn(from, to, promoting, push);
         }
     }
