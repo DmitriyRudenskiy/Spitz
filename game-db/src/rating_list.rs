@@ -83,23 +83,19 @@ impl RatingList {
                     Err(reason) => bad = Some(reason),
                 }
             }
-            if bad.is_none() {
-                if let Some(value) = header.field(&fields, Column::Peak) {
-                    match rating(value) {
-                        Ok(value) => info.peak = value,
-                        Err(reason) => bad = Some(reason),
-                    }
+            if bad.is_none() && let Some(value) = header.field(&fields, Column::Peak) {
+                match rating(value) {
+                    Ok(value) => info.peak = value,
+                    Err(reason) => bad = Some(reason),
                 }
             }
-            if bad.is_none() {
-                if let Some(value) = header.field(&fields, Column::Birth) {
-                    if !value.is_empty() {
-                        match Date::parse(value) {
-                            Ok(date) if date.year().is_some() => info.birth = Some(date),
-                            Ok(_) => bad = Some("birth date has no year"),
-                            Err(_) => bad = Some("birth date is not a date"),
-                        }
-                    }
+            if bad.is_none()
+                && let Some(value) = header.field(&fields, Column::Birth).filter(|value| !value.is_empty())
+            {
+                match Date::parse(value) {
+                    Ok(date) if date.year().is_some() => info.birth = Some(date),
+                    Ok(_) => bad = Some("birth date has no year"),
+                    Err(_) => bad = Some("birth date is not a date"),
                 }
             }
             if let Some(reason) = bad {
@@ -110,7 +106,7 @@ impl RatingList {
                 info.title = Some(value.to_ascii_uppercase());
             }
             match header.field(&fields, Column::Federation) {
-                Some(value) if value.is_empty() => {}
+                Some("") => {}
                 Some(value) if value.len() == 3 && value.chars().all(char::is_alphabetic) => {
                     info.federation = Some(value.to_ascii_uppercase());
                 }
@@ -184,7 +180,7 @@ impl RatingList {
         if !after_birthday {
             years = years.checked_sub(1)?;
         }
-        (years <= u8::MAX as u16).then(|| years as u8)
+        (years <= u8::MAX as u16).then_some(years as u8)
     }
 }
 

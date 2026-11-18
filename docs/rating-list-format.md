@@ -32,6 +32,9 @@ A field containing a comma is quoted with `"`; a `""` inside a quoted field is o
 field means **unknown**, and stays unknown: it is never read as rating 0 — a literal `0` is read as
 unknown too — and a player with no birth date has no age rather than age 0.
 
+A birth date with no month counts from January, and one with no day from the first, so a partial
+date can be a year out. A player with no birth year has no age at all.
+
 ## Bad rows
 
 A row with no name, a rating that is not a number, or a birth date that is not a date is reported

@@ -52,11 +52,11 @@
 
 ## 9. Rating list and name intelligence (`game-db`, `library-insight`)
 
-- [ ] 9.1 Fix the rating-list file layout in a format note, choosing between the reference list layout and a documented CSV, then implement the parser for rating, title, federation, and birth date.
-- [ ] 9.2 Implement rating-list lookup: fill a missing game rating with a source annotation, peak rating, and age at a date, with unknown attributes never rendered as zero.
-- [ ] 9.3 Implement name completion over the collation index returning up to 10 ranked candidates, and the 50 ms budget test on a 1,000,000-game fixture.
-- [ ] 9.4 Implement the spelling rule file (prefix, infix, suffix replacements) with malformed-rule reporting, and the systematic-spelling test.
-- [ ] 9.5 Implement edit-distance-with-transposition correction bounded at distance 2, returning the distance, never auto-applying; test the transposed-name case.
+- [x] 9.1 Fix the rating-list file layout in a format note, choosing between the reference list layout and a documented CSV, then implement the parser for rating, title, federation, and birth date.
+- [x] 9.2 Implement rating-list lookup: fill a missing game rating with a source annotation, peak rating, and age at a date, with unknown attributes never rendered as zero.
+- [x] 9.3 Implement name completion over the collation index returning up to 10 ranked candidates, and the 50 ms budget test on a 1,000,000-game fixture.
+- [x] 9.4 Implement the spelling rule file (prefix, infix, suffix replacements) with malformed-rule reporting, and the systematic-spelling test.
+- [x] 9.5 Implement edit-distance-with-transposition correction bounded at distance 2, returning the distance, never auto-applying; test the transposed-name case.
 
 ## 10. Cross-table (`game-db`, `library-insight`)
 

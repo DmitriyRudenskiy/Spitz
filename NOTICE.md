@@ -33,8 +33,8 @@ exists, and no source file of this project may carry a copyleft header.
 | `game-db/src/session.rs` | implemented | `src/dbasepool.cpp`, `src/filemap.h` | none |
 | `game-db/src/eco.rs` | implemented | `src/scidbase.cpp` (ECO read and classification), the `.eco` code-file layout | none |
 | `game-db/src/crosstable.rs` | planned | `src/crosstab.h`, `src/crosstab.cpp` | none |
-| `game-db/src/rating_list.rs` | planned | `src/spellchk.cpp` (`PlayerElo`, `PlayerInfo`) | none |
-| `game-db/src/name_correct.rs` | planned | `src/spellchk.h` (`NameNormalizer`), `src/spellchk.cpp` | none |
+| `game-db/src/rating_list.rs` | implemented | `src/spellchk.cpp` (`PlayerElo`, `PlayerInfo`) | none |
+| `game-db/src/name_correct.rs` | implemented | `src/spellchk.h` (`NameNormalizer`), `src/spellchk.cpp` | none |
 | `game-db/src/book_binary.rs` | planned | `src/polyglot/book.cpp`, `src/pbook.cpp` | none |
 
 A row moves from `planned` to `implemented` in the same commit that adds the module.
