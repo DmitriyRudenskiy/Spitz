@@ -1,0 +1,8 @@
+[package]
+name = "uci-host"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Hosting for third-party UCI engines: handshake, options, search, health, crash recovery, logs."
+
+[dependencies]
