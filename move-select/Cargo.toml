@@ -1,0 +1,9 @@
+[package]
+name = "move-select"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The opponent's move is chosen here, not by the engine. Seeded, reproducible, engine-agnostic."
+
+[dependencies]
+chess-core = { path = "../chess-core" }
