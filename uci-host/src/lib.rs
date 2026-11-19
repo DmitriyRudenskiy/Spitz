@@ -398,6 +398,23 @@ impl Engine {
         Ok(())
     }
 
+    /// Press a button. A button carries no value — `setoption name Clear Hash` is the whole
+    /// command — so it cannot go through `set_option`, and there is nothing to replay after
+    /// a restart: a pressed button is not a state.
+    pub fn press_option(&mut self, name: &str) -> Result<(), HostError> {
+        match self.declared.iter().find(|decl| decl.name() == name) {
+            Some(OptionDecl::Button { .. }) => self.send(&format!("setoption name {name}")),
+            Some(_) => Err(HostError::BadOption {
+                name: name.to_string(),
+                reason: "only a button can be pressed".into(),
+            }),
+            None => Err(HostError::BadOption {
+                name: name.to_string(),
+                reason: "the engine does not declare this option".into(),
+            }),
+        }
+    }
+
     /// The value we last set for an option, which is the state the app shows: UCI engines
     /// are not required to report their options back.
     pub fn option_value(&self, name: &str) -> Option<&str> {

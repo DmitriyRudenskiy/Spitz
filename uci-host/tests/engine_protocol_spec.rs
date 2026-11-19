@@ -274,6 +274,24 @@ fn an_option_round_trips_and_a_bad_one_never_leaves() {
             "a rejected option reached the engine: {name}={value}"
         );
     }
+
+    // A button carries no value, so it cannot go through set_option — and pressing one is
+    // still a command the engine has to receive.
+    engine.press_option("Reset").unwrap();
+    assert!(
+        harness
+            .read_log("session")
+            .contains("> setoption name Reset")
+    );
+    for not_a_button in ["MultiPV", "Nope"] {
+        assert!(
+            matches!(
+                engine.press_option(not_a_button),
+                Err(HostError::BadOption { .. })
+            ),
+            "{not_a_button} is not a button, and pressing it should say so"
+        );
+    }
     engine.quit().unwrap();
     harness.clean();
 }

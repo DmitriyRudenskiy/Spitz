@@ -23,3 +23,6 @@ dependencies = [
 [[package]]
 name = "uci-host"
 version = "0.1.0"
+dependencies = [
+ "chess-core",
+]

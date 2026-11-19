@@ -6,3 +6,6 @@ license.workspace = true
 description = "Hosting for third-party UCI engines: handshake, options, search, health, crash recovery, logs."
 
 [dependencies]
+
+[dev-dependencies]
+chess-core = { path = "../chess-core" }

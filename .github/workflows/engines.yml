@@ -1,0 +1,25 @@
+# The real-engine compliance suite (uci-host/tests/real_engine_spec.rs) is the only part
+# of the engine-protocol spec that a generated fake cannot answer, and it needs engines this
+# repository may not ship (ADR-0001). So it runs here, on a schedule, with the binaries
+# fetched at run time — and not in ci.yml, which stays offline and fails on no mirror
+# (ADR-0009). A red run here means an engine changed under us, which is worth reading about
+# in the morning and not worth blocking a pull request for.
+name: real engines
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+jobs:
+  compliance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - id: engines
+        run: echo "paths=$(bash scripts/fetch-engines.sh)" >> "$GITHUB_OUTPUT"
+      - name: Drive three engines through the handshake suite
+        env:
+          SPITZ_ENGINES: ${{ steps.engines.outputs.paths }}
+        run: |
+          test -n "$SPITZ_ENGINES" || { echo "no engine answered a handshake" >&2; exit 1; }
+          cargo test -p uci-host --locked --test real_engine_spec -- --nocapture --test-threads=1
