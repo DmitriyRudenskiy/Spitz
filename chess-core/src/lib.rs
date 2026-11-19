@@ -1,6 +1,7 @@
 //! Chess rules, notation codecs and game-document primitives. Pure: no rendering, no engine.
 
 pub mod board;
+pub mod clock;
 pub mod date;
 pub mod fen;
 pub mod key_table;
