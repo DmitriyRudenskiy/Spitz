@@ -12,6 +12,7 @@
 //! the engine's own long algebraic strings; turning them into moves belongs to whoever
 //! holds the position they were searched from.
 
+pub mod discover;
 pub mod protocol;
 
 pub use protocol::{Event, Info, InfoScore, OptionDecl};
@@ -328,13 +329,20 @@ impl Engine {
     /// `uci` and `uciok`, collecting what the engine declares about itself and its
     /// options. The engine's name and author are returned for the session to show.
     pub fn handshake(&mut self) -> Result<EngineId, HostError> {
+        self.handshake_within(HANDSHAKE_TIMEOUT)
+    }
+
+    /// The same, for a caller that means to wait less than a handshake is normally given.
+    /// Discovery uses this: a candidate that has not said `uciok` in a few seconds is not
+    /// worth the app's first run.
+    pub fn handshake_within(&mut self, patience: Duration) -> Result<EngineId, HostError> {
         self.send("uci")?;
         let mut id = EngineId {
             name: String::new(),
             author: None,
         };
         loop {
-            match self.next_event(Some(HANDSHAKE_TIMEOUT))? {
+            match self.next_event(Some(patience))? {
                 Event::UciOk => return Ok(id),
                 Event::IdName(name) => id.name = name,
                 Event::IdAuthor(author) => id.author = Some(author),
@@ -566,12 +574,25 @@ pub fn health_check(
     program: impl AsRef<Path>,
     args: &[&str],
     log_path: Option<impl AsRef<Path>>,
-) -> Result<EngineId, HostError> {
+) -> Result<EngineInfo, HostError> {
     let mut engine = Engine::spawn(program, args, log_path)?;
     let id = engine.handshake()?;
     engine.is_ready()?;
+    let info = EngineInfo {
+        id,
+        options: engine.declared().to_vec(),
+    };
     engine.quit()?;
-    Ok(id)
+    Ok(info)
+}
+
+/// Who the engine said it is, and the option set it said it can be told. The second half
+/// is what lets a feature that needs an absent option be hidden instead of silently
+/// ignored.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EngineInfo {
+    pub id: EngineId,
+    pub options: Vec<OptionDecl>,
 }
 
 /// The engines the player has registered. Persistence is the app's business; this is the
@@ -586,6 +607,9 @@ pub struct Registered {
     pub id: EngineId,
     pub program: PathBuf,
     pub args: Vec<String>,
+    /// What this engine declared, recorded on the way in. The strength controls and the
+    /// MultiPV control are offered from this list, not from hope.
+    pub options: Vec<OptionDecl>,
 }
 
 impl Registry {
@@ -597,11 +621,12 @@ impl Registry {
         args: &[&str],
         log_path: Option<impl AsRef<Path>>,
     ) -> Result<Registered, HostError> {
-        let id = health_check(program.as_ref(), args, log_path)?;
+        let info = health_check(program.as_ref(), args, log_path)?;
         let registered = Registered {
-            id,
+            id: info.id,
             program: program.as_ref().to_path_buf(),
             args: args.iter().map(|a| a.to_string()).collect(),
+            options: info.options,
         };
         self.engines.retain(|e| e.program != registered.program);
         self.engines.push(registered.clone());
