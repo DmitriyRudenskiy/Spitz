@@ -8,21 +8,33 @@ pub struct Games<'a> {
     pub fault: Option<LexError>,
 }
 
-/// A game ends at a termination marker outside any variation. When the stream faults, the
-/// games that already parsed are returned along with the fault.
+/// A game ends where the next one starts: at the first header of the next game, once this game
+/// reached its termination marker. The marker does not end it, because what is written after the
+/// result annotates the game and belongs to it. When the stream faults, the games that already
+/// parsed are returned along with the fault.
 pub fn split_games(src: &str) -> Games<'_> {
     let mut lexer = Lexer::new(src);
     let mut games: Vec<Vec<Token>> = Vec::new();
     let mut current: Vec<Token> = Vec::new();
     let mut fault = None;
+    // Whether the game being read has signed itself off, so the next header starts another.
+    let mut ended = false;
     while let Some(item) = lexer.next() {
         match item {
             Ok(token) => {
-                let ends_game = matches!(token, Token::Result(_)) && lexer.depth() == 0;
-                current.push(token);
-                if ends_game {
+                // Anything but an annotation, after a game signed itself off, starts the next one.
+                if ended
+                    && !matches!(
+                        token,
+                        Token::BraceComment(_) | Token::LineComment(_) | Token::Escape(_)
+                    )
+                {
                     games.push(std::mem::take(&mut current));
+                    ended = false;
                 }
+                let marks_the_end = matches!(token, Token::Result(_)) && lexer.depth() == 0;
+                current.push(token);
+                ended |= marks_the_end;
             }
             Err(error) => {
                 fault = Some(error);
@@ -40,6 +52,7 @@ pub fn split_games(src: &str) -> Games<'_> {
     if fault.is_none() && !current.is_empty() {
         games.push(current);
     }
+    // A game that never reached a marker is still a game: the caller says how it ended.
     Games { games, fault }
 }
 

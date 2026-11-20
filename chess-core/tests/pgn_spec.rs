@@ -178,3 +178,33 @@ fn reads_a_game_with_no_move_text() {
         "[Event \"Forfeited\"]\n[Result \"1-0\"]\n\n1-0\n"
     );
 }
+
+#[test]
+fn a_comment_after_the_result_belongs_to_the_game() {
+    // The marker ends the moves, not the game: what is written after it annotates the game, and
+    // dropping it would lose a note on the way in and on the way out.
+    let game = pgn::parse("{a blindfold game} 1. e4 e5 1/2-1/2 {and they stopped there}").unwrap();
+    assert_eq!(game.head, ["a blindfold game"]);
+    assert_eq!(game.tail, ["and they stopped there"]);
+    assert_eq!(game.moves.len(), 2);
+    assert_eq!(game.result, GameResult::Draw);
+
+    let text = pgn::format(&game);
+    let again = pgn::parse(&text).unwrap();
+    assert_eq!(again.tail, game.tail, "{text}");
+    assert_eq!(again.head, game.head);
+}
+
+#[test]
+fn a_game_ends_where_the_next_one_starts() {
+    let source =
+        "[Event \"First\"]\n\n1. e4 e5 1/2-1/2 {a draw}\n\n[Event \"Second\"]\n\n1. d4 Nf6 1-0\n";
+    let (games, fault) = pgn::parse_stream(source).unwrap();
+    assert_eq!(fault, None);
+    assert_eq!(games.len(), 2);
+    assert_eq!(games[0].tag("Event"), Some("First"));
+    assert_eq!(games[0].tail, ["a draw"]);
+    assert_eq!(games[1].tag("Event"), Some("Second"));
+    assert_eq!(games[1].result, GameResult::WhiteWins);
+    assert!(games[1].tail.is_empty());
+}

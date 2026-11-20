@@ -131,12 +131,17 @@ pub fn decode(tokens: &[Token], source: &str) -> Result<Game, Fault> {
     let mut marked = false;
     for token in tokens {
         match *token {
-            Token::TagPair { name, value } => game
+            // Headers are written before the moves, so a tag pair found after a move belongs to
+            // whatever the move text was saying, not to the headers.
+            Token::TagPair { name, value } if body.is_empty() => game
                 .tags
                 .push((name.to_string(), unescape_tag_value(value).into_owned())),
-            Token::Result(result) => {
+            Token::Result(result) if !marked => {
                 game.result = result;
                 marked = true;
+                // The marker itself stays in the body: what is written after it annotates the
+                // game rather than the last move, and only where it was can the reader tell.
+                body.push(Token::Result(result));
             }
             other => body.push(other),
         }
