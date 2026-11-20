@@ -23,3 +23,26 @@ jobs:
         run: |
           test -n "$SPITZ_ENGINES" || { echo "no engine answered a handshake" >&2; exit 1; }
           cargo test -p uci-host --locked --test real_engine_spec -- --nocapture --test-threads=1
+
+  # The same engines, asked to be different strengths. `ladder` exits non-zero when an
+  # adjacent pair fails to out-score the level below it, which is the only proof that the
+  # twenty levels are twenty things and not one number with a slider.
+  ladder:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - id: engines
+        run: echo "paths=$(bash scripts/fetch-engines.sh)" >> "$GITHUB_OUTPUT"
+      - name: Measure that each level beats the one below it
+        # A node budget, not a fixed depth: at depth 6 Stockfish is weaker than the top
+        # levels ask to be, so the Elo cap never bites and levels 12 through 20 are the
+        # same opponent, which the ladder reports as ~50% and calls unseparated.
+        env:
+          SPITZ_ENGINES: ${{ steps.engines.outputs.paths }}
+          # Stockfish reads its whole network on every start; the ladder starts two per
+          # pair, and the load is the slow part, not the search.
+          SF_THREADS: 1
+        run: |
+          test -n "$SPITZ_ENGINES" || { echo "no engine answered a handshake" >&2; exit 1; }
+          cargo run --release --locked -p ladder -- --games 40 --nodes 150000

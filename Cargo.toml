@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["chess-core", "game-db", "move-select", "uci-host"]
+members = ["chess-core", "game-db", "ladder", "move-select", "uci-host"]
 
 [workspace.package]
 version = "0.1.0"

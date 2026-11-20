@@ -14,6 +14,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ladder"
+version = "0.1.0"
+dependencies = [
+ "chess-core",
+ "move-select",
+ "uci-host",
+]
+
+[[package]]
 name = "move-select"
 version = "0.1.0"
 dependencies = [

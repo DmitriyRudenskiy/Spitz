@@ -1,0 +1,11 @@
+[package]
+name = "ladder"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Adjacent-level matches: does a higher level actually beat a lower one?"
+
+[dependencies]
+chess-core = { path = "../chess-core" }
+move-select = { path = "../move-select" }
+uci-host = { path = "../uci-host" }
